@@ -64,43 +64,44 @@ const App = () => {
       label: '📺 視聴する',
       buttonText: 'で見る',
       services: [
-        { id: 'amazon_prime', name: 'Amazon Prime Video', icon: '▶️', color: 'from-cyan-600 to-cyan-800' },
-        { id: 'netflix', name: 'Netflix', icon: '▶️', color: 'from-red-600 to-red-800' },
-        { id: 'unext', name: 'U-NEXT', icon: '▶️', color: 'from-slate-700 to-slate-900' },
-        { id: 'hulu', name: 'Hulu', icon: '▶️', color: 'from-emerald-500 to-emerald-700' },
-        { id: 'disney', name: 'Disney+', icon: '▶️', color: 'from-blue-700 to-indigo-900' },
+        { id: 'amazon_prime', name: 'Prime Video', icon: '▶️', color: 'from-slate-700 to-slate-800', textColor: 'text-white' },
+        { id: 'netflix', name: 'Netflix', icon: '▶️', color: 'from-red-600 to-red-600', textColor: 'text-white' },
+        { id: 'unext', name: 'U-NEXT', icon: '▶️', color: 'from-white to-white', textColor: 'text-black', border: true },
+        { id: 'hulu', name: 'Hulu', icon: '▶️', color: 'from-emerald-500 to-emerald-700', textColor: 'text-white' },
+        { id: 'disney', name: 'Disney+', icon: '▶️', color: 'from-cyan-600 to-teal-700', textColor: 'text-white' },
       ]
     },
     buy: {
       label: '🛒 購入する',
-      buttonText: 'で買う',
+      buttonText: '',
+      buttonStyle: 'logo',
       services: [
-        { id: 'amazon', name: 'Amazon', icon: '🛒', color: 'from-teal-600 to-teal-800' },
-        { id: 'rakuten', name: '楽天市場', icon: '🛒', color: 'from-red-700 to-red-900' },
-        { id: 'yahoo', name: 'Yahoo!ショッピング', icon: '🛒', color: 'from-orange-500 to-orange-700' },
+        { id: 'amazon', name: 'amazon', icon: '', logoStyle: 'amazon' },
+        { id: 'rakuten', name: '楽天市場', icon: '', logoStyle: 'rakuten' },
+        { id: 'yahoo', name: 'Yahoo!ショッピング', icon: '', logoStyle: 'yahoo' },
       ]
     },
     book: {
       label: '📚 電子書籍・本',
       buttonText: 'で読む',
       services: [
-        { id: 'kindle', name: 'Kindle版', icon: '📖', color: 'from-amber-500 to-orange-600' },
-        { id: 'kindle_unlimited', name: 'Kindle Unlimited', icon: '📖', color: 'from-amber-600 to-orange-700' },
-        { id: 'amazon_book', name: 'Amazon（紙の本）', icon: '📖', color: 'from-amber-500 to-orange-600' },
-        { id: 'rakuten_kobo', name: '楽天Kobo', icon: '📖', color: 'from-red-700 to-red-900' },
-        { id: 'rakuten_books', name: '楽天Books', icon: '📖', color: 'from-red-700 to-red-900' },
-        { id: 'renta', name: 'Renta!', icon: '📖', color: 'from-lime-500 to-lime-700' },
+        { id: 'kindle', name: 'Kindle版', icon: '📖', color: 'from-amber-500 to-orange-600', textColor: 'text-white' },
+        { id: 'kindle_unlimited', name: 'Kindle Unlimited', icon: '📖', color: 'from-amber-600 to-orange-700', textColor: 'text-white' },
+        { id: 'amazon_book', name: 'Amazon（紙の本）', icon: '📖', color: 'from-amber-500 to-orange-600', textColor: 'text-white' },
+        { id: 'rakuten_kobo', name: '楽天Kobo', icon: '📖', color: 'from-red-700 to-red-900', textColor: 'text-white' },
+        { id: 'rakuten_books', name: '楽天Books', icon: '📖', color: 'from-red-700 to-red-900', textColor: 'text-white' },
+        { id: 'renta', name: 'Renta!', icon: '📖', color: 'from-lime-500 to-lime-700', textColor: 'text-white' },
       ]
     },
     game: {
       label: '🎮 ゲームを入手',
       buttonText: 'で入手',
       services: [
-        { id: 'psstore', name: 'PlayStation Store', icon: '🎮', color: 'from-blue-600 to-blue-800' },
-        { id: 'nintendo', name: 'Nintendo eShop', icon: '🎮', color: 'from-red-500 to-red-700' },
-        { id: 'steam', name: 'Steam', icon: '🎮', color: 'from-gray-700 to-gray-900' },
-        { id: 'xbox', name: 'Xbox Store', icon: '🎮', color: 'from-green-600 to-green-800' },
-        { id: 'amazon_game', name: 'Amazon（パッケージ版）', icon: '🛒', color: 'from-teal-600 to-teal-800' },
+        { id: 'psstore', name: 'PlayStation Store', icon: '🎮', color: 'from-blue-600 to-blue-800', textColor: 'text-white' },
+        { id: 'nintendo', name: 'Nintendo eShop', icon: '🎮', color: 'from-red-500 to-red-700', textColor: 'text-white' },
+        { id: 'steam', name: 'Steam', icon: '🎮', color: 'from-gray-700 to-gray-900', textColor: 'text-white' },
+        { id: 'xbox', name: 'Xbox Store', icon: '🎮', color: 'from-green-600 to-green-800', textColor: 'text-white' },
+        { id: 'amazon_game', name: 'Amazon（パッケージ版）', icon: '🛒', color: 'from-teal-600 to-teal-800', textColor: 'text-white' },
       ]
     },
     other: {
@@ -1959,12 +1960,32 @@ const App = () => {
                           const serviceInfo = getServiceInfo(l.service);
                           const categoryInfo = linkServices[l.category];
                           const displayName = l.customName || (serviceInfo ? serviceInfo.name : l.service) || 'リンク';
-                          const colorClass = serviceInfo ? serviceInfo.color : 'from-purple-600 to-pink-600';
                           const platformText = l.platform ? `（${gamePlatforms.find(p => p.id === l.platform)?.name || l.platform}）` : '';
                           const buttonText = categoryInfo?.buttonText || 'で見る';
                           const icon = serviceInfo?.icon || '🔗';
+                          
+                          // 購入系（ロゴスタイル）
+                          if (categoryInfo?.buttonStyle === 'logo') {
+                            const logoStyles = {
+                              amazon: { text: 'amazon', textClass: 'text-gray-900 font-medium tracking-tight', borderClass: 'border-gray-300' },
+                              rakuten: { text: '楽天市場', textClass: 'text-red-600 font-bold', borderClass: 'border-gray-300' },
+                              yahoo: { text: 'Yahoo!ショッピング', textClass: 'text-red-500 font-bold text-sm', borderClass: 'border-gray-300' },
+                            };
+                            const logoStyle = logoStyles[serviceInfo?.logoStyle] || { text: displayName, textClass: 'text-gray-800', borderClass: 'border-gray-300' };
+                            return (
+                              <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className={`flex-1 flex items-center justify-center py-4 px-3 bg-white border ${logoStyle.borderClass} rounded-lg hover:bg-gray-50 transition-colors min-h-[56px]`}>
+                                <span className={logoStyle.textClass}>{logoStyle.text}</span>
+                              </a>
+                            );
+                          }
+                          
+                          // 動画配信系・その他（グラデーションスタイル）
+                          const colorClass = serviceInfo?.color || 'from-purple-600 to-pink-600';
+                          const textColorClass = serviceInfo?.textColor || 'text-white';
+                          const hasBorder = serviceInfo?.border;
+                          
                           return (
-                            <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className={`flex-1 flex items-center justify-center gap-1 py-3 px-2 bg-gradient-to-r ${colorClass} text-white rounded-lg text-center font-bold hover:opacity-90 transition-opacity text-sm`}>
+                            <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className={`flex-1 flex items-center justify-center gap-1 py-3 px-2 bg-gradient-to-r ${colorClass} ${textColorClass} ${hasBorder ? 'border border-gray-300' : ''} rounded-lg text-center font-bold hover:opacity-90 transition-opacity text-sm`}>
                               <span>{icon}</span>
                               <span className="truncate">{displayName}{platformText}{buttonText}</span>
                             </a>
