@@ -1161,7 +1161,8 @@ const App = () => {
                       historyCategories: getHistoryCategories(item),
                       parentSubEra: item.parentSubEra || '',
                       mainEra: item.mainEra,
-                      startYear: parseYear(item.subEraYears?.split('-')[0] || item.year),
+                      // subEraYearsをそのままparseYearに渡す（世紀形式を正しく処理）
+                      startYear: parseYear(item.subEraYears) || parseYear(item.year),
                       items: [],
                       childGroups: [], // 子となる時代区分グループ
                       childContents: [] // 子となるコンテンツ
@@ -1272,8 +1273,8 @@ const App = () => {
                 
                 // 時代区分なしのアイテムを追加
                 noSubEraItems.forEach(item => {
-                  const firstContent = item.content?.[0];
-                  const sortYear = parseYear(firstContent?.periodRange?.split('-')[0] || item.year);
+                  // アイテムのyearを直接使用（contentのperiodRangeは表示用で範囲形式があるため）
+                  const sortYear = parseYear(item.year);
                   timelineItems.push({
                     type: 'item',
                     item: item,
@@ -2353,7 +2354,8 @@ const App = () => {
                           : allSubEras.filter(({ item }) => hasHistoryCategory(item, adminSubEraFilter));
                         const sorted = [...filtered].sort((a, b) => {
                           if (subEraSort === 'year') {
-                            return parseYear(a.item?.subEraYears?.split('-')[0] || a.item?.year) - parseYear(b.item?.subEraYears?.split('-')[0] || b.item?.year);
+                            // subEraYearsをそのままparseYearに渡す（世紀形式を正しく処理）
+                            return (parseYear(a.item?.subEraYears) || parseYear(a.item?.year)) - (parseYear(b.item?.subEraYears) || parseYear(b.item?.year));
                           } else if (subEraSort === 'title') {
                             return (a.subEra || '').localeCompare(b.subEra || '', 'ja');
                           } else {
