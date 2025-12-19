@@ -1477,19 +1477,162 @@ const App = () => {
           </div>
         )}
 
-        {page === 'about' && (
-          <div className="max-w-3xl mx-auto px-4 py-16">
-            <h1 className="text-4xl font-bold text-center mb-8 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">物語で旅する、世界と時代。</h1>
-            <div className="bg-gray-50 rounded-lg p-8 mb-8 space-y-4 border text-gray-700">
-              <p>スクリーンの向こうに広がるのは、さまざまな時代、さまざまな場所。</p>
-              <p>歴史の出来事や年号だけでは見えない、その時代の空気、服装、建築、街の音。</p>
-              <p>映画を通して見ぬ時代を歩き、遠い世界へ旅をすることで、歴史は記号ではなく、手触りのある体験に変わります。</p>
-              <p className="font-bold text-purple-700">CINEchrono TRAVEL は、映画という窓から世界と時代をめぐるための地図です。</p>
-              <p>あなたの旅が、ここから始まりますように。</p>
-              <p className="text-center text-gray-500 italic pt-4">— 映画は、時代を歩くための地図になる。</p>
+       {page === 'about' && (
+  <div className="max-w-4xl mx-auto px-4 py-16">
+    {/* メインキャッチコピー */}
+    <h1 className="text-4xl font-bold text-center mb-8 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">物語で旅する、世界と時代。</h1>
+    
+    {/* イントロダクション */}
+    <div className="bg-gray-50 rounded-lg p-8 mb-12 space-y-4 border text-gray-700">
+      <p>スクリーンの向こうに広がるのは、さまざまな時代、さまざまな場所。</p>
+      <p>歴史の出来事や年号だけでは見えない、その時代の空気、服装、建築、街の音。</p>
+      <p>映画を通して見ぬ時代を歩き、遠い世界へ旅をすることで、歴史は記号ではなく、手触りのある体験に変わります。</p>
+      <p className="font-bold text-purple-700">CINEchrono TRAVEL は、映画という窓から世界と時代をめぐるための地図です。</p>
+      <p>あなたの旅が、ここから始まりますように。</p>
+      <p className="text-center text-gray-500 italic pt-4">— 映画は、時代を歩くための地図になる。</p>
+    </div>
+
+    {/* 作成者の想い */}
+    <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-8 mb-12 border border-purple-200">
+      <h2 className="text-2xl font-bold mb-4 text-purple-800">📚 このサイトを作った理由</h2>
+      <div className="space-y-3 text-gray-700">
+        <p>「カエサルって、いつの時代の人だっけ？」</p>
+        <p>「産業革命とフランス革命、どっちが先？」</p>
+        <p>中学・高校・大学で歴史を勉強していた頃、年号と出来事の暗記に苦労しました。教科書を読んでも、その時代がどんな世界だったのか、なかなかイメージが湧かない。</p>
+        <p>でも、映画を観ると違いました。『グラディエーター』を観ればローマ帝国の壮大さが伝わり、『レ・ミゼラブル』を観ればフランス革命後の混乱が肌で感じられる。</p>
+        <p className="font-semibold text-purple-700">「あの頃の自分に、こんなサイトがあったら良かったのに」</p>
+        <p>そんな想いから、CINEchrono TRAVELは生まれました。</p>
+      </div>
+    </div>
+
+    {/* 時代区分図表 */}
+    <div className="mb-12">
+      <h2 className="text-2xl font-bold mb-6 text-center">🗺️ 世界史の時代区分</h2>
+      <p className="text-center text-gray-600 mb-8">ヨーロッパ史を基準とした5つの時代区分で、歴史の大きな流れを把握できます。</p>
+      
+      {/* 時代区分バー */}
+      <div className="overflow-x-auto">
+        <div className="min-w-[600px]">
+          {/* 世紀ラベル */}
+          <div className="flex text-xs text-gray-500 mb-2">
+            <div className="w-[12%] text-center">BC</div>
+            <div className="w-[16%] text-center">1-5世紀</div>
+            <div className="w-[20%] text-center">6-15世紀</div>
+            <div className="w-[18%] text-center">16-18世紀</div>
+            <div className="w-[18%] text-center">19-20世紀</div>
+            <div className="w-[16%] text-center">21世紀</div>
+          </div>
+          
+          {/* メインの時代区分バー */}
+          <div className="flex h-14 rounded-lg overflow-hidden shadow-lg mb-4">
+            <div className="w-[28%] bg-gradient-to-r from-amber-500 to-amber-600 flex items-center justify-center text-white font-bold">
+              <span>古代</span>
+            </div>
+            <div className="w-[20%] bg-gradient-to-r from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-bold">
+              <span>中世</span>
+            </div>
+            <div className="w-[18%] bg-gradient-to-r from-cyan-500 to-cyan-600 flex items-center justify-center text-white font-bold">
+              <span>近世</span>
+            </div>
+            <div className="w-[18%] bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold">
+              <span>近代</span>
+            </div>
+            <div className="w-[16%] bg-gradient-to-r from-purple-500 to-purple-600 flex items-center justify-center text-white font-bold">
+              <span>現代</span>
             </div>
           </div>
-        )}
+
+          {/* 区切りイベント */}
+          <div className="flex text-xs relative h-8">
+            <div className="w-[28%] flex justify-end pr-1">
+              <div className="text-amber-700 text-center">
+                <div className="border-l-2 border-amber-400 h-4 mx-auto"></div>
+                <span>西ローマ滅亡<br/>(476年)</span>
+              </div>
+            </div>
+            <div className="w-[20%] flex justify-end pr-1">
+              <div className="text-emerald-700 text-center">
+                <div className="border-l-2 border-emerald-400 h-4 mx-auto"></div>
+                <span>大航海時代<br/>(1492年〜)</span>
+              </div>
+            </div>
+            <div className="w-[18%] flex justify-end pr-1">
+              <div className="text-cyan-700 text-center">
+                <div className="border-l-2 border-cyan-400 h-4 mx-auto"></div>
+                <span>フランス革命<br/>(1789年)</span>
+              </div>
+            </div>
+            <div className="w-[18%] flex justify-end pr-1">
+              <div className="text-blue-700 text-center">
+                <div className="border-l-2 border-blue-400 h-4 mx-auto"></div>
+                <span>冷戦終結<br/>(1991年)</span>
+              </div>
+            </div>
+            <div className="w-[16%]"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* 各時代の説明 */}
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold mb-6 text-center">📖 各時代の特徴</h2>
+      
+      <div className="bg-amber-50 rounded-lg p-6 border border-amber-200">
+        <div className="flex items-center gap-3 mb-3">
+          <span className="px-3 py-1 bg-amber-500 text-white rounded-full text-sm font-bold">古代</span>
+          <span className="text-gray-500 text-sm">〜500年</span>
+        </div>
+        <p className="text-gray-700">古代ギリシャ・古代ローマの時代。西ローマ帝国の滅亡（476年）をもって終了とされます。哲学、民主制、法律など、現代にも続く多くの概念がこの時代に生まれました。</p>
+        <p className="text-amber-700 text-sm mt-2">🎬 代表作品：グラディエーター、ベン・ハー、300〈スリーハンドレッド〉</p>
+      </div>
+
+      <div className="bg-emerald-50 rounded-lg p-6 border border-emerald-200">
+        <div className="flex items-center gap-3 mb-3">
+          <span className="px-3 py-1 bg-emerald-500 text-white rounded-full text-sm font-bold">中世</span>
+          <span className="text-gray-500 text-sm">501-1500年</span>
+        </div>
+        <p className="text-gray-700">封建制を基盤とした時代。西ローマ帝国滅亡後から大航海時代の始まりまで、約1000年間続きました。騎士、城、キリスト教会が社会の中心でした。</p>
+        <p className="text-emerald-700 text-sm mt-2">🎬 代表作品：ブレイブハート、キングダム・オブ・ヘブン、ジャンヌ・ダルク</p>
+      </div>
+
+      <div className="bg-cyan-50 rounded-lg p-6 border border-cyan-200">
+        <div className="flex items-center gap-3 mb-3">
+          <span className="px-3 py-1 bg-cyan-500 text-white rounded-full text-sm font-bold">近世</span>
+          <span className="text-gray-500 text-sm">1501-1800年</span>
+        </div>
+        <p className="text-gray-700">中世から近代への移行期。大航海時代の幕開け（1492年）からフランス革命前まで。ルネサンス、宗教改革、絶対王政の時代です。</p>
+        <p className="text-cyan-700 text-sm mt-2">🎬 代表作品：エリザベス、アマデウス、パイレーツ・オブ・カリビアン</p>
+      </div>
+
+      <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
+        <div className="flex items-center gap-3 mb-3">
+          <span className="px-3 py-1 bg-blue-500 text-white rounded-full text-sm font-bold">近代</span>
+          <span className="text-gray-500 text-sm">1801-1945年</span>
+        </div>
+        <p className="text-gray-700">産業革命・フランス革命から第二次世界大戦終結まで。資本主義が発達し、国民国家が確立された激動の時代。二度の世界大戦を経験しました。</p>
+        <p className="text-blue-700 text-sm mt-2">🎬 代表作品：レ・ミゼラブル、1917、シンドラーのリスト</p>
+      </div>
+
+      <div className="bg-purple-50 rounded-lg p-6 border border-purple-200">
+        <div className="flex items-center gap-3 mb-3">
+          <span className="px-3 py-1 bg-purple-500 text-white rounded-full text-sm font-bold">現代</span>
+          <span className="text-gray-500 text-sm">1945年〜</span>
+        </div>
+        <p className="text-gray-700">第二次世界大戦後から現在まで。冷戦、グローバル化、デジタル革命を経て、私たちが生きる「今」へと続きます。</p>
+        <p className="text-purple-700 text-sm mt-2">🎬 代表作品：グッドナイト&グッドラック、ペンタゴン・ペーパーズ、ゼロ・ダーク・サーティ</p>
+      </div>
+    </div>
+
+    {/* 締めのメッセージ */}
+    <div className="mt-12 text-center">
+      <p className="text-gray-600 mb-4">さあ、年表を開いて、時代の旅に出かけましょう。</p>
+      <button onClick={() => setPage('timeline')} className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold hover:from-purple-700 hover:to-pink-700 shadow-lg transition-all">
+        🎬 年表を見る
+      </button>
+    </div>
+  </div>
+)}
 
         {page === 'articles' && (
           <div className="max-w-4xl mx-auto px-4 py-16">
