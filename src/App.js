@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Film, X, Gamepad2, BookMarked, Settings, Clock, Menu, ExternalLink, LogOut, Loader2, Pencil, Swords, ScrollText, MapPin, ChevronLeft, ChevronRight, Tv } from 'lucide-react';
+import { Film, X, Gamepad2, BookMarked, Settings, Clock, Menu, ExternalLink, LogOut, Loader2, Pencil, Swords, ScrollText, MapPin, ChevronLeft, ChevronRight, Tv, Skull, AlertCircle, ToggleLeft, ToggleRight } from 'lucide-react';
 import { db, auth, fetchTimelineData, addTimelineItem, deleteTimelineItem, loginAdmin, logoutAdmin } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 
 const App = () => {
   const [sel, setSel] = useState(null);
@@ -20,6 +20,9 @@ const App = () => {
   const [saving, setSaving] = useState(false);
   const [authError, setAuthError] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
+  
+  // アフィリエイト表示設定
+  const [affiliateEnabled, setAffiliateEnabled] = useState(false);
   
   // 編集モード用state
   const [editMode, setEditMode] = useState(false);
@@ -129,7 +132,7 @@ const App = () => {
   };
   
   const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'watch', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
-  const [ef, setEf] = useState({ eventType: 'other', historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', year: '', desc: '', detail: '', topic: { title: '', url: '' } });
+  const [ef, setEf] = useState({ eventType: 'war', historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', year: '', desc: '', detail: '', topic: { title: '', url: '' } });
   const [sf, setSf] = useState({ mainEra: 'modern', subEra: '', subEraType: 'normal', subEraYears: '', parentSubEra: '', historyCategories: ['world'], desc: '', detail: '' });
   const [contentSort, setContentSort] = useState('year'); // year, title, created
   const [eventSort, setEventSort] = useState('year');
@@ -240,6 +243,35 @@ const App = () => {
     loadData();
   }, []);
 
+  // Firestoreから設定を取得
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settingsDoc = await getDoc(doc(db, 'settings', 'global'));
+        if (settingsDoc.exists()) {
+          setAffiliateEnabled(settingsDoc.data().affiliateEnabled ?? false);
+        }
+      } catch (error) {
+        console.error('設定読み込みエラー:', error);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  // アフィリエイト設定をトグル
+  const toggleAffiliate = async () => {
+    const newValue = !affiliateEnabled;
+    setAffiliateEnabled(newValue);
+    try {
+      await setDoc(doc(db, 'settings', 'global'), { affiliateEnabled: newValue }, { merge: true });
+      console.log('アフィリエイト設定を更新:', newValue ? '公開' : '非公開');
+    } catch (error) {
+      console.error('設定保存エラー:', error);
+      alert('設定の保存に失敗しました。Firestoreのセキュリティルールを確認してください。');
+      setAffiliateEnabled(!newValue); // エラー時は元に戻す
+    }
+  };
+
   // 単一タイプのスタイル
   const styleBase = { 
     movie: { b: 'border-blue-500', txt: 'text-blue-700', ic: Film, icc: 'text-blue-600', bg: 'bg-blue-50' }, 
@@ -285,15 +317,27 @@ const App = () => {
   
   const eventIcon = (eventType) => {
     switch(eventType) {
-      case 'war': return { icon: Swords, label: '⚔️ 戦争・紛争' };
-      case 'treaty': return { icon: ScrollText, label: '📜 条約・宣言・思想' };
-      default: return { icon: MapPin, label: '📍 出来事' };
+      case 'war': return { icon: Swords, label: '⚔️ 戦争・紛争', color: 'red', bgColor: 'bg-red-100', borderColor: 'border-red-500', textColor: 'text-red-700', iconColor: 'text-red-600' };
+      case 'incident': return { icon: AlertCircle, label: '❗ 事件', color: 'red', bgColor: 'bg-red-100', borderColor: 'border-red-500', textColor: 'text-red-700', iconColor: 'text-red-600' };
+      case 'plague': return { icon: Skull, label: '💀 疫病・災害', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-500', textColor: 'text-gray-700', iconColor: 'text-gray-600' };
+      case 'treaty': return { icon: ScrollText, label: '📜 条約・宣言', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-500', textColor: 'text-gray-700', iconColor: 'text-gray-600' };
+      default: return { icon: MapPin, label: '📍 出来事', color: 'red', bgColor: 'bg-red-100', borderColor: 'border-red-500', textColor: 'text-red-700', iconColor: 'text-red-600' };
     }
   };
   
   const subEraIcon = (subEraType) => {
-    // 全て統一カラー（時計アイコンと同じグレー系）
-    return { icon: Clock, label: '🕐 時代区分', color: 'gray' };
+    switch(subEraType) {
+      case 'war': 
+        return { icon: Swords, label: '⚔️ 戦争・紛争', color: 'red', bgColor: 'bg-red-100', borderColor: 'border-red-300', iconColor: 'text-red-600' };
+      case 'incident': 
+        return { icon: AlertCircle, label: '❗ 事件', color: 'red', bgColor: 'bg-red-100', borderColor: 'border-red-300', iconColor: 'text-red-600' };
+      case 'plague': 
+        return { icon: Skull, label: '💀 疫病・災害', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-600' };
+      case 'treaty': 
+        return { icon: ScrollText, label: '📜 条約・宣言', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-600' };
+      default: 
+        return { icon: Clock, label: '🕐 時代区分', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-600' };
+    }
   };
   
   // YouTube URLから動画IDを抽出
@@ -345,7 +389,7 @@ const App = () => {
   };
 
   const resetEventForm = () => {
-    setEf({ eventType: 'other', historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', year: '', desc: '', detail: '', topic: { title: '', url: '' } });
+    setEf({ eventType: 'war', historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', year: '', desc: '', detail: '', topic: { title: '', url: '' } });
     setEditMode(false);
     setEditTarget(null);
   };
@@ -1299,7 +1343,11 @@ const App = () => {
                       // 時代区分グループ（ヘッダー + 中のアイテム + 子グループ）
                       const seIcon = subEraIcon(ti.subEraType);
                       const SeIcon = seIcon.icon;
-                      const colors = { bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-800', subtext: 'text-gray-500', line: 'border-gray-400', iconColor: 'text-gray-600' };
+                      // subEraTypeに応じた色を使用
+                      const isRed = seIcon.color === 'red';
+                      const colors = isRed 
+                        ? { bg: 'bg-red-100', border: 'border-red-300', text: 'text-red-800', subtext: 'text-red-500', line: 'border-red-400', iconColor: 'text-red-600' }
+                        : { bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-800', subtext: 'text-gray-500', line: 'border-gray-400', iconColor: 'text-gray-600' };
                       return (
                         <React.Fragment key={`subEraGroup-${ti.subEra}-${tiIdx}`}>
                           {/* 紀元の区切り線 */}
@@ -1320,6 +1368,7 @@ const App = () => {
                               className="flex items-center cursor-pointer group"
                               onClick={() => setSel({ 
                                 type: 'subEra', 
+                                subEraType: ti.subEraType,
                                 title: ti.subEra, 
                                 subEraYears: ti.subEraYears,
                                 desc: ti.subEraDesc,
@@ -1341,19 +1390,6 @@ const App = () => {
                           {ti.items.map(item => (
                             <div key={item.id} className="ml-20 mb-4">
                               <div className="text-lg font-bold text-purple-600 mb-2">{item.year}</div>
-                              {item.events?.map((ev, i) => {
-                                const evStyle = eventIcon(ev.eventType);
-                                const EvIcon = evStyle.icon;
-                                return (
-                                  <div key={i} onClick={() => { setVideoIndex(0); setSel({ ...ev, year: item.year, itemId: item.id, idx: i }); }} className="cursor-pointer p-4 mb-3 border-l-4 border-red-500 bg-red-50 rounded-r-lg hover:shadow-md transition-shadow">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <EvIcon className="w-4 h-4 text-red-600" />
-                                      <span className="font-bold text-red-700">{ev.title}</span>
-                                    </div>
-                                    <div className="text-sm text-red-600">{ev.desc}</div>
-                                  </div>
-                                );
-                              })}
                               {item.content?.map((c, i) => {
                                 const s = style(c.type);
                                 const icons = getTypeIcons(c.type);
@@ -1385,15 +1421,21 @@ const App = () => {
                           {ti.childGroups?.map((child, childIdx) => {
                             const childSeIcon = subEraIcon(child.subEraType);
                             const ChildSeIcon = childSeIcon.icon;
+                            // 子時代区分自身のsubEraTypeに応じた色を使用
+                            const isChildRed = childSeIcon.color === 'red';
+                            const childColors = isChildRed 
+                              ? { bg: 'bg-red-100', border: 'border-red-300', text: 'text-red-800', subtext: 'text-red-500', line: 'border-red-400', iconColor: 'text-red-600' }
+                              : { bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-800', subtext: 'text-gray-500', line: 'border-gray-400', iconColor: 'text-gray-600' };
                             return (
                               <div key={`child-${child.subEra}-${childIdx}`}>
                                 {/* 子時代区分ヘッダー */}
                                 <div className="flex items-center ml-20 relative mb-4">
-                                  <div className={`absolute left-[-48px] top-5 w-12 border-t-2 border-dashed ${colors.line}`}></div>
+                                  <div className={`absolute left-[-48px] top-5 w-12 border-t-2 border-dashed ${childColors.line}`}></div>
                                   <div 
                                     className="flex items-center cursor-pointer group"
                                     onClick={() => setSel({ 
                                       type: 'subEra', 
+                                      subEraType: child.subEraType,
                                       title: child.subEra, 
                                       subEraYears: child.subEraYears,
                                       desc: child.subEraDesc,
@@ -1402,12 +1444,12 @@ const App = () => {
                                       subEra: child.subEra
                                     })}
                                   >
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md border-2 z-10 ${colors.bg} ${colors.border} group-hover:scale-110 transition-transform`}>
-                                      <ChildSeIcon className={`w-5 h-5 ${colors.iconColor}`} />
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md border-2 z-10 ${childColors.bg} ${childColors.border} group-hover:scale-110 transition-transform`}>
+                                      <ChildSeIcon className={`w-5 h-5 ${childColors.iconColor}`} />
                                     </div>
                                     <div className="ml-3">
-                                      <div className={`font-bold ${colors.text} group-hover:text-purple-600 transition-colors`}>{child.subEra}</div>
-                                      <div className={`text-xs ${colors.subtext}`}>{child.subEraYears}</div>
+                                      <div className={`font-bold ${childColors.text} group-hover:text-purple-600 transition-colors`}>{child.subEra}</div>
+                                      <div className={`text-xs ${childColors.subtext}`}>{child.subEraYears}</div>
                                     </div>
                                   </div>
                                 </div>
@@ -1415,19 +1457,6 @@ const App = () => {
                                 {child.items.map(item => (
                                   <div key={item.id} className="ml-20 mb-4">
                                     <div className="text-lg font-bold text-purple-600 mb-2">{item.year}</div>
-                                    {item.events?.map((ev, i) => {
-                                      const evStyle = eventIcon(ev.eventType);
-                                      const EvIcon = evStyle.icon;
-                                      return (
-                                        <div key={i} onClick={() => { setVideoIndex(0); setSel({ ...ev, year: item.year, itemId: item.id, idx: i }); }} className="cursor-pointer p-4 mb-3 border-l-4 border-red-500 bg-red-50 rounded-r-lg hover:shadow-md transition-shadow">
-                                          <div className="flex items-center gap-2 mb-1">
-                                            <EvIcon className="w-4 h-4 text-red-600" />
-                                            <span className="font-bold text-red-700">{ev.title}</span>
-                                          </div>
-                                          <div className="text-sm text-red-600">{ev.desc}</div>
-                                        </div>
-                                      );
-                                    })}
                                     {item.content?.map((c, i) => {
                                       const s = style(c.type);
                                       const icons = getTypeIcons(c.type);
@@ -1507,19 +1536,6 @@ const App = () => {
                           <CenturyMarker />
                           <div className="ml-20 mb-6">
                           <div className="text-lg font-bold text-purple-600 mb-2">{item.year}</div>
-                          {item.events?.map((ev, i) => {
-                            const evStyle = eventIcon(ev.eventType);
-                            const EvIcon = evStyle.icon;
-                            return (
-                              <div key={i} onClick={() => { setVideoIndex(0); setSel({ ...ev, year: item.year, itemId: item.id, idx: i }); }} className="cursor-pointer p-4 mb-3 border-l-4 border-red-500 bg-red-50 rounded-r-lg hover:shadow-md transition-shadow">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <EvIcon className="w-4 h-4 text-red-600" />
-                                  <span className="font-bold text-red-700">{ev.title}</span>
-                                </div>
-                                <div className="text-sm text-red-600">{ev.desc}</div>
-                              </div>
-                            );
-                          })}
                           {item.content?.map((c, i) => {
                             const s = style(c.type);
                             const icons = getTypeIcons(c.type);
@@ -1578,9 +1594,9 @@ const App = () => {
                 <p>「カエサルって、いつの時代の人だっけ？」</p>
                 <p>「産業革命とフランス革命、どっちが先？」</p>
                 <p>中学・高校・大学で歴史を勉強していた頃、年号と出来事の暗記に苦労しました。教科書を読んでも、その時代がどんな世界だったのか、なかなかイメージが湧かない。</p>
-                <p>でも、映画を観ると違いました。『グラディエーター』を観ればローマ帝国の壮大さが伝わり、『レ・ミゼラブル』を観ればフランス革命後の混乱が肌で感じられる。</p>
+                <p>でも映画を観れば、その時代の雰囲気を掴める。『グラディエーター』を観ればローマ帝国の壮大さが伝わり、『レ・ミゼラブル』を観ればフランス革命後の混乱が肌で感じられる。</p>
                 <p className="font-semibold text-purple-700">「あの頃の自分に、こんなサイトがあったら良かったのに」</p>
-                <p>そんな想いから、CINEchrono TRAVELを制作しました。</p>
+                <p>そんな想いから、CINEchrono TRAVELを作成しました！</p>
               </div>
             </div>
 
@@ -1746,7 +1762,7 @@ const App = () => {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl">
             <div className="sticky top-0 bg-white p-4 flex justify-between items-center border-b">
-              <h2 className="text-xl font-bold">{sel.type === 'history' ? eventIcon(sel.eventType).label : sel.type === 'subEra' ? '🕐 時代区分' : label(sel.type)}</h2>
+              <h2 className="text-xl font-bold">{sel.type === 'history' ? eventIcon(sel.eventType).label : sel.type === 'subEra' ? subEraIcon(sel.subEraType).label : label(sel.type)}</h2>
               <div className="flex items-center gap-2">
                 {adminMode && (
                   <button 
@@ -1843,11 +1859,9 @@ const App = () => {
                     </div>
                   )}
                   {sel.synopsis && <div className="mb-4"><div className="text-sm text-gray-500 mb-2">あらすじ</div><p className="text-gray-700">{sel.synopsis}</p></div>}
-                  {sel.links?.length > 0 && (() => {
+                  {(adminMode || affiliateEnabled) && sel.links?.length > 0 && (() => {
                     const validLinks = sel.links.filter(l => l.url);
-                    const gridClass = validLinks.length <= 3 
-                      ? `grid grid-cols-${validLinks.length} gap-2` 
-                      : 'grid grid-cols-2 gap-2';
+                    if (validLinks.length === 0) return null;
                     return (
                       <div className={`mt-6 ${validLinks.length <= 3 ? 'flex gap-2' : 'grid grid-cols-2 gap-2'}`}>
                         {validLinks.map((l, i) => {
@@ -1905,10 +1919,41 @@ const App = () => {
             <div className="max-w-3xl mx-auto bg-white rounded-lg p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">✏️ 管理画面</h2>
-                <button onClick={() => { setAdmin(false); resetContentForm(); resetEventForm(); }} className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><X className="w-6 h-6" /></button>
+                <button onClick={() => { setAdmin(false); resetContentForm(); resetSubEraForm(); }} className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><X className="w-6 h-6" /></button>
               </div>
+              
+              {/* 設定エリア */}
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Settings className="w-5 h-5 text-purple-600" />
+                    <div>
+                      <div className="font-semibold text-gray-800">アフィリエイトリンク表示</div>
+                      <div className="text-xs text-gray-500">オフの場合、管理者のみリンクが表示されます</div>
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={toggleAffiliate} 
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all ${affiliateEnabled ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}
+                  >
+                    {affiliateEnabled ? (
+                      <>
+                        <ToggleRight className="w-5 h-5" />
+                        <span>公開中</span>
+                      </>
+                    ) : (
+                      <>
+                        <ToggleLeft className="w-5 h-5" />
+                        <span>非公開</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+              
               <div className="flex gap-2 mb-6">
-                {[['content', '🎬 作品'], ['event', '📚 イベント'], ['subEra', '🏛️ 時代区分']].map(([t, l]) => <button key={t} onClick={() => { setTab(t); if (t === 'content') { resetEventForm(); resetSubEraForm(); } else if (t === 'event') { resetContentForm(); resetSubEraForm(); } else { resetContentForm(); resetEventForm(); } }} className={`flex-1 py-3 rounded-lg font-bold ${tab === t ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white' : 'bg-gray-100 text-gray-700'}`}>{l}</button>)}
+                {[['content', '🎬 作品'], ['subEra', '🏛️ 時代区分・イベント']].map(([t, l]) => <button key={t} onClick={() => { setTab(t); if (t === 'content') { resetSubEraForm(); } else { resetContentForm(); } }} className={`flex-1 py-3 rounded-lg font-bold ${tab === t ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white' : 'bg-gray-100 text-gray-700'}`}>{l}</button>)}
               </div>
               {tab === 'content' && (
                 <form ref={contentFormRef} onSubmit={addC} className="bg-gray-50 rounded-lg p-6 border space-y-4">
@@ -2181,132 +2226,6 @@ const App = () => {
                   </div>
                 </form>
               )}
-              {tab === 'event' && (
-                <form ref={eventFormRef} onSubmit={addE} className="bg-gray-50 rounded-lg p-6 border space-y-4">
-                  {editMode && editTarget?.type === 'event' && (
-                    <div className="bg-gradient-to-r from-yellow-100 to-orange-100 border-2 border-yellow-400 rounded-lg p-4 mb-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Pencil className="w-5 h-5 text-yellow-700" />
-                        <p className="text-yellow-800 font-bold text-lg">編集モード</p>
-                      </div>
-                      <p className="text-yellow-700 text-sm mb-2">「{ef.title}」を編集中です。内容を変更して「更新」ボタンを押してください。</p>
-                      <button type="button" onClick={resetEventForm} className="text-sm text-yellow-700 hover:text-yellow-900 underline font-semibold">✕ キャンセルして新規追加に戻る</button>
-                    </div>
-                  )}
-                  <select value={ef.eventType} onChange={e => setEf(p => ({ ...p, eventType: e.target.value }))} className="w-full px-4 py-3 bg-white border rounded-lg" required>
-                    <option value="other">📍 出来事（暗殺、革命など）</option>
-                    <option value="war">⚔️ 戦争・紛争</option>
-                    <option value="treaty">📜 条約・宣言・思想</option>
-                  </select>
-                  <div className="bg-white border rounded-lg p-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">歴史カテゴリ（複数選択可）</label>
-                    <div className="flex flex-wrap gap-4">
-                      {[
-                        { id: 'japan', label: '🇯🇵 日本史', color: 'red' },
-                        { id: 'world', label: '🌐 世界史', color: 'blue' }
-                      ].map(cat => (
-                        <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={ef.historyCategories?.includes(cat.id)}
-                            onChange={() => setEf(p => {
-                              const cats = p.historyCategories || ['world'];
-                              if (cats.includes(cat.id)) {
-                                const newCats = cats.filter(c => c !== cat.id);
-                                return { ...p, historyCategories: newCats.length > 0 ? newCats : cats };
-                              } else {
-                                return { ...p, historyCategories: [...cats, cat.id] };
-                              }
-                            })}
-                            className="w-5 h-5 rounded"
-                          />
-                          <span className={`font-medium ${cat.color === 'red' ? 'text-red-700' : 'text-blue-700'}`}>
-                            {cat.label}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <input list="s2" value={ef.subEra} onChange={e => setEf(p => ({ ...p, subEra: e.target.value }))} placeholder="時代区分（例: ローマ帝国）※任意" className="w-full px-4 py-3 bg-white border rounded-lg" />
-                  <datalist id="s2">{[...new Set(sortedData.filter(i => i.subEra).map(i => i.subEra))].map((s, i) => <option key={i} value={s} />)}</datalist>
-                  <input value={ef.title} onChange={e => setEf(p => ({ ...p, title: e.target.value }))} placeholder="イベント名 ※必須" className="w-full px-4 py-3 bg-white border rounded-lg" required />
-                  <div className="space-y-2">
-                    <input value={ef.year} onChange={e => setEf(p => ({ ...p, year: e.target.value, mainEra: detectMainEra(e.target.value) }))} placeholder="年代（例: 紀元前44年）※必須" className="w-full px-4 py-3 bg-white border rounded-lg border-purple-300" required />
-                    <p className="text-xs text-purple-600">↑ 大区分は自動判定されます</p>
-                  </div>
-                  <textarea value={ef.desc} onChange={e => setEf(p => ({ ...p, desc: e.target.value }))} placeholder="概要 ※任意" className="w-full px-4 py-3 bg-white border rounded-lg h-20" />
-                  <textarea value={ef.detail} onChange={e => setEf(p => ({ ...p, detail: e.target.value }))} placeholder="詳細 ※任意" className="w-full px-4 py-3 bg-white border rounded-lg h-32" />
-                  <div className="pt-4 border-t">
-                    <label className="block font-semibold mb-2">📖 トピック記事（任意）</label>
-                    <input value={ef.topic.title} onChange={e => setEf(p => ({ ...p, topic: { ...p.topic, title: e.target.value }}))} placeholder="記事タイトル" className="w-full px-4 py-2 bg-white border rounded-lg mb-2" />
-                    <input value={ef.topic.url} onChange={e => setEf(p => ({ ...p, topic: { ...p.topic, url: e.target.value }}))} placeholder="記事URL" className="w-full px-4 py-2 bg-white border rounded-lg" />
-                  </div>
-                  <button type="submit" disabled={saving} className={`w-full py-3 ${editMode ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600' : 'bg-gradient-to-r from-purple-600 to-pink-600'} text-white rounded-lg font-bold disabled:opacity-50 flex items-center justify-center gap-2`}>
-                    {saving && <Loader2 className="w-5 h-5 animate-spin" />}
-                    {editMode ? '✓ 更新する' : '追加'}
-                  </button>
-
-                  <div className="mt-8 pt-8 border-t">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-bold">📋 登録済みイベント</h3>
-                      <div className="flex gap-1 flex-wrap">
-                        <button type="button" onClick={() => setAdminEventFilter('all')} className={`px-3 py-1 text-xs rounded-full ${adminEventFilter === 'all' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>すべて</button>
-                        <button type="button" onClick={() => setAdminEventFilter('japan')} className={`px-3 py-1 text-xs rounded-full ${adminEventFilter === 'japan' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>🇯🇵日本史</button>
-                        <button type="button" onClick={() => setAdminEventFilter('world')} className={`px-3 py-1 text-xs rounded-full ${adminEventFilter === 'world' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>🌐世界史</button>
-                        <span className="border-l mx-1"></span>
-                        <button type="button" onClick={() => setEventSort('year')} className={`px-3 py-1 text-xs rounded-full ${eventSort === 'year' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>年代順</button>
-                        <button type="button" onClick={() => setEventSort('title')} className={`px-3 py-1 text-xs rounded-full ${eventSort === 'title' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>五十音順</button>
-                        <button type="button" onClick={() => setEventSort('created')} className={`px-3 py-1 text-xs rounded-full ${eventSort === 'created' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>登録日順</button>
-                      </div>
-                    </div>
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {(() => {
-                        const allEvents = sortedData.flatMap(item => 
-                          item.events.map((ev, idx) => ({ item, event: ev, idx }))
-                        );
-                        // フィルター適用
-                        const filtered = adminEventFilter === 'all' 
-                          ? allEvents 
-                          : allEvents.filter(({ event: ev }) => hasHistoryCategory(ev, adminEventFilter));
-                        const sorted = [...filtered].sort((a, b) => {
-                          if (eventSort === 'year') {
-                            return parseYear(a.item.year) - parseYear(b.item.year);
-                          } else if (eventSort === 'title') {
-                            return (a.event.title || '').localeCompare(b.event.title || '', 'ja');
-                          } else {
-                            return (b.item.id || '').localeCompare(a.item.id || '');
-                          }
-                        });
-                        return sorted.map(({ item, event: ev, idx }) => {
-                          const evStyle = eventIcon(ev.eventType);
-                          const cats = getHistoryCategories(ev);
-                          return (
-                            <div key={`${item.id}-e-${idx}`} className={`flex items-center justify-between p-3 bg-white border rounded-lg ${editMode && editTarget?.itemId === item.id && editTarget?.idx === idx && editTarget?.type === 'event' ? 'ring-2 ring-yellow-400 bg-yellow-50' : ''}`}>
-                              <div className="flex-1">
-                                <div className="font-semibold flex items-center gap-2">
-                                  <evStyle.icon className="w-4 h-4 text-red-600" />
-                                  {ev.title}
-                                  {cats.includes('japan') && <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">🇯🇵</span>}
-                                  {cats.includes('world') && cats.includes('japan') && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">🌐</span>}
-                                </div>
-                                <div className="text-sm text-gray-500">{evStyle.label} • {item.year}</div>
-                              </div>
-                              <div className="flex gap-1">
-                                <button type="button" onClick={() => startEditEvent(item.id, idx)} disabled={saving} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-50" title="編集">
-                                  <Pencil className="w-5 h-5" />
-                                </button>
-                                <button type="button" onClick={() => deleteContent(item.id, 'event', idx)} disabled={saving} className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50" title="削除">
-                                  <X className="w-5 h-5" />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
-                  </div>
-                </form>
-              )}
               {tab === 'subEra' && (
                 <form onSubmit={addSubEra} className="bg-gray-50 rounded-lg p-6 border space-y-4">
                   {editMode && editTarget?.type === 'subEra' && (
@@ -2319,10 +2238,21 @@ const App = () => {
                       <button type="button" onClick={resetSubEraForm} className="text-sm text-yellow-700 hover:text-yellow-900 underline font-semibold">✕ キャンセルして新規追加に戻る</button>
                     </div>
                   )}
+                  <select 
+                    value={sf.subEraType || 'normal'} 
+                    onChange={e => setSf(p => ({ ...p, subEraType: e.target.value }))} 
+                    className="w-full px-4 py-3 bg-white border rounded-lg"
+                  >
+                    <option value="normal">🕐 時代区分</option>
+                    <option value="war">⚔️ 戦争・紛争</option>
+                    <option value="incident">❗ 事件</option>
+                    <option value="plague">💀 疫病・災害</option>
+                    <option value="treaty">📜 条約・宣言</option>
+                  </select>
                   <input 
                     value={sf.subEra} 
                     onChange={e => setSf(p => ({ ...p, subEra: e.target.value }))} 
-                    placeholder="時代区分名（例: 第二次世界大戦）※必須" 
+                    placeholder="名称（例: 第二次世界大戦）※必須" 
                     className="w-full px-4 py-3 bg-white border rounded-lg" 
                     required 
                   />
@@ -2330,11 +2260,11 @@ const App = () => {
                     <input 
                       value={sf.subEraYears} 
                       onChange={e => setSf(p => ({ ...p, subEraYears: e.target.value, mainEra: detectMainEra(e.target.value.split('-')[0] || e.target.value) }))} 
-                      placeholder="期間（例: 1939-1945）※必須・大区分判定に使用" 
+                      placeholder="年代（例: 1939-1945 または 1945）※必須・大区分判定に使用" 
                       className="w-full px-4 py-3 bg-white border rounded-lg border-purple-300" 
                       required
                     />
-                    <p className="text-xs text-purple-600">↑ 期間の開始年から大区分が自動判定されます</p>
+                    <p className="text-xs text-purple-600">↑ 開始年から大区分が自動判定されます</p>
                   </div>
                   <div className="bg-white border rounded-lg p-4">
                     <label className="block text-sm font-semibold text-gray-700 mb-3">歴史カテゴリ（複数選択可）</label>
@@ -2439,7 +2369,7 @@ const App = () => {
                             <div key={key} className={`flex items-center justify-between p-3 bg-white border rounded-lg ${editMode && editTarget?.type === 'subEra' && editTarget?.mainEra === mainEra && editTarget?.subEra === subEra ? 'ring-2 ring-yellow-400 bg-yellow-50' : ''}`}>
                               <div className="flex-1">
                                 <div className="font-semibold flex items-center gap-2">
-                                  <SeIcon className="w-4 h-4" />
+                                  <SeIcon className={`w-4 h-4 ${seIcon.iconColor}`} />
                                   {subEra}
                                   {cats.includes('japan') && <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">🇯🇵</span>}
                                   {cats.includes('world') && cats.includes('japan') && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">🌐</span>}
@@ -2447,7 +2377,7 @@ const App = () => {
                                     <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">→ {item.parentSubEra}</span>
                                   )}
                                 </div>
-                                <div className="text-sm text-gray-500">{eraName} • {item?.subEraYears || '期間未設定'}</div>
+                                <div className="text-sm text-gray-500">{seIcon.label} • {eraName} • {item?.subEraYears || '期間未設定'}</div>
                               </div>
                               <div className="flex gap-1">
                                 <button type="button" onClick={() => startEditSubEra(mainEra, subEra)} disabled={saving} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-50" title="編集">
