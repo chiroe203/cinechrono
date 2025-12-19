@@ -160,26 +160,51 @@ const App = () => {
   };
 
   // 年代文字列を数値に変換（ソート用）
+  // ルール1: 「12世紀」→ 前期:1115頃, 中期:1150頃, 後期:1185頃, 修飾なし:1101
+  // ルール2: 「1180」→ そのまま1180
+  // ルール3: 「1150-1189」→ 前半4桁(1150)を参照
   const parseYear = (yearStr) => {
     if (!yearStr) return 0;
     const str = String(yearStr);
+    
     // 紀元前またはBC形式に対応
     if (str.includes('紀元前') || str.toUpperCase().includes('BC')) {
-      // ハイフン区切りの場合は最初の数値を使用
-      const firstPart = str.split(/[-〜~]/)[0];
-      const num = parseInt(firstPart.replace(/[^0-9]/g, '')) || 0;
+      // 4桁の年号を探す（例：紀元前264年、BC264年）
+      const fourDigitMatch = str.match(/(\d{3,4})/);
+      if (fourDigitMatch) {
+        return -parseInt(fourDigitMatch[1]);
+      }
+      // 見つからなければ最初の数値
+      const num = parseInt(str.replace(/[^0-9]/g, '')) || 0;
       return -num;
     }
+    
+    // 「○世紀」形式（ルール1）
     if (str.includes('世紀')) {
       const match = str.match(/(\d+)/);
       if (match) {
         const century = parseInt(match[1]);
-        return century * 100;
+        const baseYear = (century - 1) * 100 + 1; // 12世紀 → 1101
+        if (str.includes('前期') || str.includes('初頭') || str.includes('初め')) {
+          return baseYear + 15; // 12世紀前期 → 1116
+        } else if (str.includes('中期') || str.includes('半ば')) {
+          return baseYear + 50; // 12世紀中期 → 1151
+        } else if (str.includes('後期') || str.includes('末') || str.includes('終わり')) {
+          return baseYear + 85; // 12世紀後期 → 1186
+        }
+        return baseYear; // 12世紀 → 1101
       }
     }
-    // ハイフン区切りの場合は最初の数値を使用（1701-1722頃 → 1701）
-    const firstPart = str.split(/[-〜~]/)[0];
-    const num = parseInt(firstPart.replace(/[^0-9]/g, '')) || 0;
+    
+    // 4桁の年号を探す（ルール2, ルール3対応）
+    // 「1150-1189」「794-1185年」「1180年」などから最初の4桁を取得
+    const fourDigitMatch = str.match(/(\d{3,4})/);
+    if (fourDigitMatch) {
+      return parseInt(fourDigitMatch[1]);
+    }
+    
+    // それでも見つからなければ最初の数値
+    const num = parseInt(str.replace(/[^0-9]/g, '')) || 0;
     return num;
   };
 
@@ -1258,22 +1283,77 @@ const App = () => {
                   group.childGroups.sort((a, b) => a.startYear - b.startYear);
                 });
                 
-                // タイムラインアイテムを構築（親を持たない時代区分グループ + 時代区分なし）
+                // タイムラインアイテムを構築（分離方式：ヘッダーとアイテムを別々に配置）
                 const timelineItems = [];
                 
-                // 親を持たない時代区分グループを追加
+                // 親を持たない時代区分を処理
                 Object.values(subEraGroups).forEach(group => {
                   if (!childSubEras[group.subEra]) {
+                    // 1. 時代区分ヘッダーを追加（開始年で配置）
                     timelineItems.push({
-                      type: 'subEraGroup',
-                      ...group
+                      type: 'subEraHeader',
+                      subEra: group.subEra,
+                      subEraYears: group.subEraYears,
+                      subEraDesc: group.subEraDesc,
+                      subEraDetail: group.subEraDetail,
+                      subEraType: group.subEraType,
+                      mainEra: group.mainEra,
+                      year: group.startYear
+                    });
+                    
+                    // 2. 時代区分内のアイテムを追加（各アイテムの年号で配置）
+                    group.items.forEach(item => {
+                      timelineItems.push({
+                        type: 'subEraItem',
+                        subEra: group.subEra,
+                        item: item,
+                        year: parseYear(item.year)
+                      });
+                    });
+                    
+                    // 3. 子時代区分グループを処理
+                    group.childGroups.forEach(child => {
+                      // 子時代区分ヘッダー
+                      timelineItems.push({
+                        type: 'childSubEraHeader',
+                        parentSubEra: group.subEra,
+                        subEra: child.subEra,
+                        subEraYears: child.subEraYears,
+                        subEraDesc: child.subEraDesc,
+                        subEraDetail: child.subEraDetail,
+                        subEraType: child.subEraType,
+                        mainEra: child.mainEra,
+                        year: child.startYear
+                      });
+                      
+                      // 子時代区分内のアイテム
+                      child.items.forEach(item => {
+                        timelineItems.push({
+                          type: 'childSubEraItem',
+                          parentSubEra: group.subEra,
+                          subEra: child.subEra,
+                          item: item,
+                          year: parseYear(item.year)
+                        });
+                      });
+                    });
+                    
+                    // 4. 親時代区分を持つコンテンツ
+                    group.childContents.forEach(pc => {
+                      timelineItems.push({
+                        type: 'parentedContent',
+                        parentSubEra: group.subEra,
+                        content: pc.content,
+                        item: pc.item,
+                        idx: pc.idx,
+                        year: parseYear(pc.year)
+                      });
                     });
                   }
                 });
                 
                 // 時代区分なしのアイテムを追加
                 noSubEraItems.forEach(item => {
-                  // アイテムのyearを直接使用（contentのperiodRangeは表示用で範囲形式があるため）
                   const sortYear = parseYear(item.year);
                   timelineItems.push({
                     type: 'item',
@@ -1284,24 +1364,20 @@ const App = () => {
                 
                 // 年代順にソート（安定化）
                 timelineItems.sort((a, b) => {
-                  const yearA = a.type === 'subEraGroup' ? a.startYear : a.year;
-                  const yearB = b.type === 'subEraGroup' ? b.startYear : b.year;
-                  if (yearA !== yearB) return yearA - yearB;
-                  // 同じ年の場合は識別子でソート
-                  const idA = a.type === 'subEraGroup' ? a.subEra : (a.item?.id || '');
-                  const idB = b.type === 'subEraGroup' ? b.subEra : (b.item?.id || '');
+                  if (a.year !== b.year) return a.year - b.year;
+                  // 同じ年の場合、ヘッダーを先に表示
+                  const typeOrder = { 'subEraHeader': 0, 'childSubEraHeader': 1, 'subEraItem': 2, 'childSubEraItem': 2, 'parentedContent': 2, 'item': 2 };
+                  const orderDiff = (typeOrder[a.type] || 2) - (typeOrder[b.type] || 2);
+                  if (orderDiff !== 0) return orderDiff;
+                  // 識別子でソート
+                  const idA = a.subEra || a.item?.id || '';
+                  const idB = b.subEra || b.item?.id || '';
                   return idA.localeCompare(idB);
                 });
                 
                 // 紀元を跨ぐかチェック（古代のみ）
-                const hasBCItems = era.id === 'ancient' && timelineItems.some(ti => {
-                  const yr = ti.type === 'subEraGroup' ? ti.startYear : ti.year;
-                  return yr < 0;
-                });
-                const hasADItems = era.id === 'ancient' && timelineItems.some(ti => {
-                  const yr = ti.type === 'subEraGroup' ? ti.startYear : ti.year;
-                  return yr > 0;
-                });
+                const hasBCItems = era.id === 'ancient' && timelineItems.some(ti => ti.year < 0);
+                const hasADItems = era.id === 'ancient' && timelineItems.some(ti => ti.year > 0);
                 const showEraLine = hasBCItems && hasADItems;
                 
                 return (
@@ -1312,9 +1388,9 @@ const App = () => {
                   </div>
                   {timelineItems.map((ti, tiIdx) => {
                     // 紀元の区切り線を表示するかチェック
-                    const currentYear = ti.type === 'subEraGroup' ? ti.startYear : ti.year;
+                    const currentYear = ti.year;
                     const prevItem = tiIdx > 0 ? timelineItems[tiIdx - 1] : null;
-                    const prevYear = prevItem ? (prevItem.type === 'subEraGroup' ? prevItem.startYear : prevItem.year) : null;
+                    const prevYear = prevItem ? prevItem.year : null;
                     const showEraDivider = showEraLine && prevYear !== null && prevYear < 0 && currentYear > 0;
                     
                     // 世紀マーカーを表示するかチェック（大区分をまたいでも追跡）
@@ -1340,29 +1416,27 @@ const App = () => {
                       </div>
                     ) : null;
                     
-                    if (ti.type === 'subEraGroup') {
-                      // 時代区分グループ（ヘッダー + 中のアイテム + 子グループ）
+                    // 紀元区切り線コンポーネント
+                    const EraDivider = () => showEraDivider ? (
+                      <div className="flex items-center ml-20 my-8">
+                        <div className="flex-1 border-t-2 border-dashed border-amber-400"></div>
+                        <div className="px-4 py-1 bg-amber-100 text-amber-700 font-bold text-sm rounded-full mx-4">紀元</div>
+                        <div className="flex-1 border-t-2 border-dashed border-amber-400"></div>
+                      </div>
+                    ) : null;
+                    
+                    // 時代区分ヘッダー
+                    if (ti.type === 'subEraHeader') {
                       const seIcon = subEraIcon(ti.subEraType);
                       const SeIcon = seIcon.icon;
-                      // subEraTypeに応じた色を使用
                       const isRed = seIcon.color === 'red';
                       const colors = isRed 
                         ? { bg: 'bg-red-100', border: 'border-red-300', text: 'text-red-800', subtext: 'text-red-500', line: 'border-red-400', iconColor: 'text-red-600' }
                         : { bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-800', subtext: 'text-gray-500', line: 'border-gray-400', iconColor: 'text-gray-600' };
                       return (
-                        <React.Fragment key={`subEraGroup-${ti.subEra}-${tiIdx}`}>
-                          {/* 紀元の区切り線 */}
-                          {showEraDivider && (
-                            <div className="flex items-center ml-20 my-8">
-                              <div className="flex-1 border-t-2 border-dashed border-amber-400"></div>
-                              <div className="px-4 py-1 bg-amber-100 text-amber-700 font-bold text-sm rounded-full mx-4">紀元</div>
-                              <div className="flex-1 border-t-2 border-dashed border-amber-400"></div>
-                            </div>
-                          )}
-                          {/* 世紀マーカー */}
+                        <React.Fragment key={`subEraHeader-${ti.subEra}-${tiIdx}`}>
+                          <EraDivider />
                           <CenturyMarker />
-                          <div className="mb-6">
-                          {/* 時代区分ヘッダー */}
                           <div className="flex items-center ml-20 relative mb-4">
                             <div className={`absolute left-[-48px] top-5 w-12 border-t-2 border-dashed ${colors.line}`}></div>
                             <div 
@@ -1387,162 +1461,179 @@ const App = () => {
                               </div>
                             </div>
                           </div>
-                          {/* 時代区分内のアイテム */}
-                          {ti.items.map(item => (
-                            <div key={item.id} className="ml-20 mb-4">
-                              <div className="text-lg font-bold text-purple-600 mb-2">{item.year}</div>
-                              {item.content?.map((c, i) => {
-                                const s = style(c.type);
-                                const icons = getTypeIcons(c.type);
-                                const displayPeriod = c.periodRange || '';
-                                return (
-                                  <div key={i} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: i }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        {icons.map((ic, idx) => {
-                                          const IconComp = ic.icon;
-                                          return <IconComp key={idx} className={`w-4 h-4 ${ic.color}`} />;
-                                        })}
-                                        <span className={`font-bold ${s.txt}`}>{c.title}</span>
-                                      </div>
-                                      <div className="text-sm text-gray-600 mt-1">{label(c.type)}</div>
-                                      <div className="text-sm text-gray-500 min-h-[1.25rem]">{displayPeriod}</div>
-                                    </div>
-                                    {c.thumbnail ? (
-                                      <img src={c.thumbnail} alt="" className="w-16 h-16 object-cover rounded flex-shrink-0" onError={(e) => e.target.style.display='none'} />
-                                    ) : (
-                                      <div className="w-16 h-16 flex-shrink-0"></div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ))}
-                          {/* 子時代区分グループ（終点となる条約など） */}
-                          {ti.childGroups?.map((child, childIdx) => {
-                            const childSeIcon = subEraIcon(child.subEraType);
-                            const ChildSeIcon = childSeIcon.icon;
-                            // 子時代区分自身のsubEraTypeに応じた色を使用
-                            const isChildRed = childSeIcon.color === 'red';
-                            const childColors = isChildRed 
-                              ? { bg: 'bg-red-100', border: 'border-red-300', text: 'text-red-800', subtext: 'text-red-500', line: 'border-red-400', iconColor: 'text-red-600' }
-                              : { bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-800', subtext: 'text-gray-500', line: 'border-gray-400', iconColor: 'text-gray-600' };
-                            return (
-                              <div key={`child-${child.subEra}-${childIdx}`}>
-                                {/* 子時代区分ヘッダー */}
-                                <div className="flex items-center ml-20 relative mb-4">
-                                  <div className={`absolute left-[-48px] top-5 w-12 border-t-2 border-dashed ${childColors.line}`}></div>
-                                  <div 
-                                    className="flex items-center cursor-pointer group"
-                                    onClick={() => setSel({ 
-                                      type: 'subEra', 
-                                      subEraType: child.subEraType,
-                                      title: child.subEra, 
-                                      subEraYears: child.subEraYears,
-                                      desc: child.subEraDesc,
-                                      detail: child.subEraDetail,
-                                      mainEra: child.mainEra,
-                                      subEra: child.subEra
-                                    })}
-                                  >
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md border-2 z-10 ${childColors.bg} ${childColors.border} group-hover:scale-110 transition-transform`}>
-                                      <ChildSeIcon className={`w-5 h-5 ${childColors.iconColor}`} />
-                                    </div>
-                                    <div className="ml-3">
-                                      <div className={`font-bold ${childColors.text} group-hover:text-purple-600 transition-colors`}>{child.subEra}</div>
-                                      <div className={`text-xs ${childColors.subtext}`}>{child.subEraYears}</div>
-                                    </div>
-                                  </div>
-                                </div>
-                                {/* 子時代区分内のアイテム */}
-                                {child.items.map(item => (
-                                  <div key={item.id} className="ml-20 mb-4">
-                                    <div className="text-lg font-bold text-purple-600 mb-2">{item.year}</div>
-                                    {item.content?.map((c, i) => {
-                                      const s = style(c.type);
-                                      const icons = getTypeIcons(c.type);
-                                      const displayPeriod = c.periodRange || '';
-                                      return (
-                                        <div key={i} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: i }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
-                                          <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                              {icons.map((ic, idx) => {
-                                                const IconComp = ic.icon;
-                                                return <IconComp key={idx} className={`w-4 h-4 ${ic.color}`} />;
-                                              })}
-                                              <span className={`font-bold ${s.txt}`}>{c.title}</span>
-                                            </div>
-                                            <div className="text-sm text-gray-600 mt-1">{label(c.type)}</div>
-                                            <div className="text-sm text-gray-500 min-h-[1.25rem]">{displayPeriod}</div>
-                                          </div>
-                                          {c.thumbnail ? (
-                                            <img src={c.thumbnail} alt="" className="w-16 h-16 object-cover rounded flex-shrink-0" onError={(e) => e.target.style.display='none'} />
-                                          ) : (
-                                            <div className="w-16 h-16 flex-shrink-0"></div>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })}
-                          {/* 親時代区分を持つコンテンツ */}
-                          {ti.childContents?.map((pc, pcIdx) => {
-                            const s = style(pc.content.type);
-                            const icons = getTypeIcons(pc.content.type);
-                            const displayPeriod = pc.content.periodRange || '';
-                            return (
-                              <div key={`pc-${pcIdx}`} className="ml-20 mb-4">
-                                <div className="text-lg font-bold text-purple-600 mb-2">{pc.year}</div>
-                                <div onClick={() => { setVideoIndex(0); setSel({ ...pc.content, year: pc.year, itemId: pc.item.id, idx: pc.idx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
+                        </React.Fragment>
+                      );
+                    }
+                    
+                    // 時代区分に属するアイテム
+                    if (ti.type === 'subEraItem') {
+                      const item = ti.item;
+                      return (
+                        <React.Fragment key={`subEraItem-${ti.subEra}-${item.id}-${tiIdx}`}>
+                          <EraDivider />
+                          <CenturyMarker />
+                          <div className="ml-20 mb-4">
+                            <div className="text-lg font-bold text-purple-600 mb-2">{item.year}</div>
+                            {item.content?.map((c, i) => {
+                              const s = style(c.type);
+                              const icons = getTypeIcons(c.type);
+                              const displayPeriod = c.periodRange || '';
+                              const originalIdx = c._originalIdx !== undefined ? c._originalIdx : i;
+                              return (
+                                <div key={i} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: originalIdx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
                                       {icons.map((ic, idx) => {
                                         const IconComp = ic.icon;
                                         return <IconComp key={idx} className={`w-4 h-4 ${ic.color}`} />;
                                       })}
-                                      <span className={`font-bold ${s.txt}`}>{pc.content.title}</span>
+                                      <span className={`font-bold ${s.txt}`}>{c.title}</span>
                                     </div>
-                                    <div className="text-sm text-gray-600 mt-1">{label(pc.content.type)}</div>
+                                    <div className="text-sm text-gray-600 mt-1">{label(c.type)}</div>
                                     <div className="text-sm text-gray-500 min-h-[1.25rem]">{displayPeriod}</div>
                                   </div>
-                                  {pc.content.thumbnail ? (
-                                    <img src={pc.content.thumbnail} alt="" className="w-16 h-16 object-cover rounded flex-shrink-0" onError={(e) => e.target.style.display='none'} />
+                                  {c.thumbnail ? (
+                                    <img src={c.thumbnail} alt="" className="w-16 h-16 object-cover rounded flex-shrink-0" onError={(e) => e.target.style.display='none'} />
                                   ) : (
                                     <div className="w-16 h-16 flex-shrink-0"></div>
                                   )}
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                              );
+                            })}
+                          </div>
                         </React.Fragment>
                       );
-                    } else {
-                      // 時代区分なしの単独アイテム
+                    }
+                    
+                    // 子時代区分ヘッダー
+                    if (ti.type === 'childSubEraHeader') {
+                      const seIcon = subEraIcon(ti.subEraType);
+                      const SeIcon = seIcon.icon;
+                      const isRed = seIcon.color === 'red';
+                      const colors = isRed 
+                        ? { bg: 'bg-red-100', border: 'border-red-300', text: 'text-red-800', subtext: 'text-red-500', line: 'border-red-400', iconColor: 'text-red-600' }
+                        : { bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-800', subtext: 'text-gray-500', line: 'border-gray-400', iconColor: 'text-gray-600' };
+                      return (
+                        <React.Fragment key={`childSubEraHeader-${ti.subEra}-${tiIdx}`}>
+                          <EraDivider />
+                          <CenturyMarker />
+                          <div className="flex items-center ml-20 relative mb-4">
+                            <div className={`absolute left-[-48px] top-5 w-12 border-t-2 border-dashed ${colors.line}`}></div>
+                            <div 
+                              className="flex items-center cursor-pointer group"
+                              onClick={() => setSel({ 
+                                type: 'subEra', 
+                                subEraType: ti.subEraType,
+                                title: ti.subEra, 
+                                subEraYears: ti.subEraYears,
+                                desc: ti.subEraDesc,
+                                detail: ti.subEraDetail,
+                                mainEra: ti.mainEra,
+                                subEra: ti.subEra
+                              })}
+                            >
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md border-2 z-10 ${colors.bg} ${colors.border} group-hover:scale-110 transition-transform`}>
+                                <SeIcon className={`w-5 h-5 ${colors.iconColor}`} />
+                              </div>
+                              <div className="ml-3">
+                                <div className={`font-bold ${colors.text} group-hover:text-purple-600 transition-colors`}>{ti.subEra}</div>
+                                <div className={`text-xs ${colors.subtext}`}>{ti.subEraYears}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </React.Fragment>
+                      );
+                    }
+                    
+                    // 子時代区分に属するアイテム
+                    if (ti.type === 'childSubEraItem') {
                       const item = ti.item;
                       return (
-                        <React.Fragment key={item.id}>
-                          {/* 紀元の区切り線 */}
-                          {showEraDivider && (
-                            <div className="flex items-center ml-20 my-8">
-                              <div className="flex-1 border-t-2 border-dashed border-amber-400"></div>
-                              <div className="px-4 py-1 bg-amber-100 text-amber-700 font-bold text-sm rounded-full mx-4">紀元</div>
-                              <div className="flex-1 border-t-2 border-dashed border-amber-400"></div>
-                            </div>
-                          )}
-                          {/* 世紀マーカー */}
+                        <React.Fragment key={`childSubEraItem-${ti.subEra}-${item.id}-${tiIdx}`}>
+                          <EraDivider />
                           <CenturyMarker />
-                          <div className="ml-20 mb-6">
+                          <div className="ml-20 mb-4">
+                            <div className="text-lg font-bold text-purple-600 mb-2">{item.year}</div>
+                            {item.content?.map((c, i) => {
+                              const s = style(c.type);
+                              const icons = getTypeIcons(c.type);
+                              const displayPeriod = c.periodRange || '';
+                              const originalIdx = c._originalIdx !== undefined ? c._originalIdx : i;
+                              return (
+                                <div key={i} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: originalIdx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      {icons.map((ic, idx) => {
+                                        const IconComp = ic.icon;
+                                        return <IconComp key={idx} className={`w-4 h-4 ${ic.color}`} />;
+                                      })}
+                                      <span className={`font-bold ${s.txt}`}>{c.title}</span>
+                                    </div>
+                                    <div className="text-sm text-gray-600 mt-1">{label(c.type)}</div>
+                                    <div className="text-sm text-gray-500 min-h-[1.25rem]">{displayPeriod}</div>
+                                  </div>
+                                  {c.thumbnail ? (
+                                    <img src={c.thumbnail} alt="" className="w-16 h-16 object-cover rounded flex-shrink-0" onError={(e) => e.target.style.display='none'} />
+                                  ) : (
+                                    <div className="w-16 h-16 flex-shrink-0"></div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </React.Fragment>
+                      );
+                    }
+                    
+                    // 親時代区分を持つコンテンツ
+                    if (ti.type === 'parentedContent') {
+                      const s = style(ti.content.type);
+                      const icons = getTypeIcons(ti.content.type);
+                      const displayPeriod = ti.content.periodRange || '';
+                      return (
+                        <React.Fragment key={`parentedContent-${ti.parentSubEra}-${ti.idx}-${tiIdx}`}>
+                          <EraDivider />
+                          <CenturyMarker />
+                          <div className="ml-20 mb-4">
+                            <div className="text-lg font-bold text-purple-600 mb-2">{ti.item.year}</div>
+                            <div onClick={() => { setVideoIndex(0); setSel({ ...ti.content, year: ti.item.year, itemId: ti.item.id, idx: ti.idx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  {icons.map((ic, idx) => {
+                                    const IconComp = ic.icon;
+                                    return <IconComp key={idx} className={`w-4 h-4 ${ic.color}`} />;
+                                  })}
+                                  <span className={`font-bold ${s.txt}`}>{ti.content.title}</span>
+                                </div>
+                                <div className="text-sm text-gray-600 mt-1">{label(ti.content.type)}</div>
+                                <div className="text-sm text-gray-500 min-h-[1.25rem]">{displayPeriod}</div>
+                              </div>
+                              {ti.content.thumbnail ? (
+                                <img src={ti.content.thumbnail} alt="" className="w-16 h-16 object-cover rounded flex-shrink-0" onError={(e) => e.target.style.display='none'} />
+                              ) : (
+                                <div className="w-16 h-16 flex-shrink-0"></div>
+                              )}
+                            </div>
+                          </div>
+                        </React.Fragment>
+                      );
+                    }
+                    
+                    // 時代区分なしの単独アイテム
+                    const item = ti.item;
+                    return (
+                      <React.Fragment key={item.id}>
+                        <EraDivider />
+                        <CenturyMarker />
+                        <div className="ml-20 mb-6">
                           <div className="text-lg font-bold text-purple-600 mb-2">{item.year}</div>
                           {item.content?.map((c, i) => {
                             const s = style(c.type);
                             const icons = getTypeIcons(c.type);
                             const displayPeriod = c.periodRange || '';
+                            const originalIdx = c._originalIdx !== undefined ? c._originalIdx : i;
                             return (
-                              <div key={i} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: i }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
+                              <div key={i} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: originalIdx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
                                     {icons.map((ic, idx) => {
@@ -1563,9 +1654,8 @@ const App = () => {
                             );
                           })}
                         </div>
-                        </React.Fragment>
-                      );
-                    }
+                      </React.Fragment>
+                    );
                   })}
                 </div>
               );})})()}
