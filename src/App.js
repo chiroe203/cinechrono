@@ -54,8 +54,81 @@ const App = () => {
     { id: 'modern', name: '近代', year: '1801-1945' }, 
     { id: 'contemporary', name: '現代', year: '1945-' }
   ];
+
+  // アフィリエイトリンクのサービス定義
+  const linkServices = {
+    watch: {
+      label: '📺 視聴する',
+      buttonText: 'で見る',
+      services: [
+        { id: 'amazon_prime', name: 'Amazon Prime Video', icon: '▶️', color: 'from-cyan-600 to-cyan-800' },
+        { id: 'netflix', name: 'Netflix', icon: '▶️', color: 'from-red-600 to-red-800' },
+        { id: 'unext', name: 'U-NEXT', icon: '▶️', color: 'from-slate-700 to-slate-900' },
+        { id: 'hulu', name: 'Hulu', icon: '▶️', color: 'from-emerald-500 to-emerald-700' },
+        { id: 'disney', name: 'Disney+', icon: '▶️', color: 'from-blue-700 to-indigo-900' },
+      ]
+    },
+    buy: {
+      label: '🛒 購入する',
+      buttonText: 'で買う',
+      services: [
+        { id: 'amazon', name: 'Amazon', icon: '🛒', color: 'from-teal-600 to-teal-800' },
+        { id: 'rakuten', name: '楽天市場', icon: '🛒', color: 'from-red-700 to-red-900' },
+        { id: 'yahoo', name: 'Yahoo!ショッピング', icon: '🛒', color: 'from-orange-500 to-orange-700' },
+      ]
+    },
+    book: {
+      label: '📚 電子書籍・本',
+      buttonText: 'で読む',
+      services: [
+        { id: 'kindle', name: 'Kindle版', icon: '📖', color: 'from-amber-500 to-orange-600' },
+        { id: 'kindle_unlimited', name: 'Kindle Unlimited', icon: '📖', color: 'from-amber-600 to-orange-700' },
+        { id: 'amazon_book', name: 'Amazon（紙の本）', icon: '📖', color: 'from-amber-500 to-orange-600' },
+        { id: 'rakuten_kobo', name: '楽天Kobo', icon: '📖', color: 'from-red-700 to-red-900' },
+        { id: 'rakuten_books', name: '楽天Books', icon: '📖', color: 'from-red-700 to-red-900' },
+        { id: 'renta', name: 'Renta!', icon: '📖', color: 'from-lime-500 to-lime-700' },
+      ]
+    },
+    game: {
+      label: '🎮 ゲームを入手',
+      buttonText: 'で入手',
+      services: [
+        { id: 'psstore', name: 'PlayStation Store', icon: '🎮', color: 'from-blue-600 to-blue-800' },
+        { id: 'nintendo', name: 'Nintendo eShop', icon: '🎮', color: 'from-red-500 to-red-700' },
+        { id: 'steam', name: 'Steam', icon: '🎮', color: 'from-gray-700 to-gray-900' },
+        { id: 'xbox', name: 'Xbox Store', icon: '🎮', color: 'from-green-600 to-green-800' },
+        { id: 'amazon_game', name: 'Amazon（パッケージ版）', icon: '🛒', color: 'from-teal-600 to-teal-800' },
+      ]
+    },
+    other: {
+      label: '🔗 その他',
+      buttonText: 'で見る',
+      services: []
+    }
+  };
+
+  const gamePlatforms = [
+    { id: 'ps5', name: 'PS5' },
+    { id: 'ps4', name: 'PS4' },
+    { id: 'switch', name: 'Nintendo Switch' },
+    { id: 'pc', name: 'PC' },
+    { id: 'xbox', name: 'Xbox' },
+  ];
+
+  // サービスIDからサービス情報を取得
+  const getServiceInfo = (serviceId) => {
+    for (const category of Object.values(linkServices)) {
+      const service = category.services.find(s => s.id === serviceId);
+      if (service) return service;
+    }
+    // 旧形式のサービス名にも対応
+    if (serviceId) {
+      return { id: serviceId, name: serviceId, icon: '🔗', color: 'from-purple-600 to-pink-600' };
+    }
+    return null;
+  };
   
-  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ service: '', url: '' }], topic: { title: '', url: '' } });
+  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'watch', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
   const [ef, setEf] = useState({ eventType: 'other', historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', year: '', desc: '', detail: '', topic: { title: '', url: '' } });
   const [sf, setSf] = useState({ mainEra: 'modern', subEra: '', subEraType: 'normal', subEraYears: '', parentSubEra: '', historyCategories: ['world'], desc: '', detail: '' });
   const [contentSort, setContentSort] = useState('year'); // year, title, created
@@ -266,7 +339,7 @@ const App = () => {
 
   // フォームリセット
   const resetContentForm = () => {
-    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ service: '', url: '' }], topic: { title: '', url: '' } });
+    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'watch', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
     setEditMode(false);
     setEditTarget(null);
   };
@@ -321,7 +394,13 @@ const App = () => {
       synopsis: content.synopsis || '',
       thumbnail: content.thumbnail || '',
       youtubeUrls: urls,
-      links: content.links?.length > 0 ? content.links : [{ service: '', url: '' }],
+      links: content.links?.length > 0 ? content.links.map(l => ({
+        category: l.category || 'watch',
+        service: l.service || '',
+        platform: l.platform || '',
+        url: l.url || '',
+        customName: l.customName || ''
+      })) : [{ category: 'watch', service: '', platform: '', url: '', customName: '' }],
       topic: content.topic || { title: '', url: '' }
     });
     setEditMode(true);
@@ -395,7 +474,7 @@ const App = () => {
       synopsis: cf.synopsis || '', 
       thumbnail: cf.thumbnail || '',
       youtubeUrls: cf.youtubeUrls.filter(url => url.trim() !== ''),
-      links: cf.links.filter(l => l.service && l.url), 
+      links: cf.links.filter(l => l.url), 
       topic: cf.topic.title && cf.topic.url ? cf.topic : null 
     };
     
@@ -1477,162 +1556,162 @@ const App = () => {
           </div>
         )}
 
-       {page === 'about' && (
-  <div className="max-w-4xl mx-auto px-4 py-16">
-    {/* メインキャッチコピー */}
-    <h1 className="text-4xl font-bold text-center mb-8 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">物語で旅する、世界と時代。</h1>
-    
-    {/* イントロダクション */}
-    <div className="bg-gray-50 rounded-lg p-8 mb-12 space-y-4 border text-gray-700">
-      <p>スクリーンの向こうに広がるのは、さまざまな時代、さまざまな場所。</p>
-      <p>歴史の出来事や年号だけでは見えない、その時代の空気、服装、建築、街の音。</p>
-      <p>映画を通して見ぬ時代を歩き、遠い世界へ旅をすることで、歴史は記号ではなく、手触りのある体験に変わります。</p>
-      <p className="font-bold text-purple-700">CINEchrono TRAVEL は、映画という窓から世界と時代をめぐるための地図です。</p>
-      <p>あなたの旅が、ここから始まりますように。</p>
-      <p className="text-center text-gray-500 italic pt-4">— 映画は、時代を歩くための地図になる。</p>
-    </div>
+        {page === 'about' && (
+          <div className="max-w-4xl mx-auto px-4 py-16">
+            {/* メインキャッチコピー */}
+            <h1 className="text-4xl font-bold text-center mb-8 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">物語で旅する、世界と時代。</h1>
+            
+            {/* イントロダクション */}
+            <div className="bg-gray-50 rounded-lg p-8 mb-12 space-y-4 border text-gray-700">
+              <p>スクリーンの向こうに広がるのは、さまざまな時代、さまざまな場所。</p>
+              <p>歴史の出来事や年号だけでは見えない、その時代の空気、服装、建築、街の音。</p>
+              <p>映画を通して見ぬ時代を歩き、遠い世界へ旅をすることで、歴史は記号ではなく、手触りのある体験に変わります。</p>
+              <p className="font-bold text-purple-700">CINEchrono TRAVEL は、映画という窓から世界と時代をめぐるための地図です。</p>
+              <p>あなたの旅が、ここから始まりますように。</p>
+              <p className="text-center text-gray-500 italic pt-4">— 映画は、時代を歩くための地図になる。</p>
+            </div>
 
-    {/* 作成者の想い */}
-    <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-8 mb-12 border border-purple-200">
-      <h2 className="text-2xl font-bold mb-4 text-purple-800">📚 このサイトを作った理由</h2>
-      <div className="space-y-3 text-gray-700">
-        <p>「カエサルって、いつの時代の人だっけ？」</p>
-        <p>「産業革命とフランス革命、どっちが先？」</p>
-        <p>中学・高校・大学で歴史を勉強していた頃、年号と出来事の暗記に苦労しました。教科書を読んでも、その時代がどんな世界だったのか、なかなかイメージが湧かない。</p>
-        <p>でも、映画を観ると違いました。『グラディエーター』を観ればローマ帝国の壮大さが伝わり、『レ・ミゼラブル』を観ればフランス革命後の混乱が肌で感じられる。</p>
-        <p className="font-semibold text-purple-700">「あの頃の自分に、こんなサイトがあったら良かったのに」</p>
-        <p>そんな想いから、CINEchrono TRAVELは生まれました。</p>
-      </div>
-    </div>
+            {/* 作成者の想い */}
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-8 mb-12 border border-purple-200">
+              <h2 className="text-2xl font-bold mb-4 text-purple-800">📚 このサイトを作った理由</h2>
+              <div className="space-y-3 text-gray-700">
+                <p>「カエサルって、いつの時代の人だっけ？」</p>
+                <p>「産業革命とフランス革命、どっちが先？」</p>
+                <p>中学・高校・大学で歴史を勉強していた頃、年号と出来事の暗記に苦労しました。教科書を読んでも、その時代がどんな世界だったのか、なかなかイメージが湧かない。</p>
+                <p>でも、映画を観ると違いました。『グラディエーター』を観ればローマ帝国の壮大さが伝わり、『レ・ミゼラブル』を観ればフランス革命後の混乱が肌で感じられる。</p>
+                <p className="font-semibold text-purple-700">「あの頃の自分に、こんなサイトがあったら良かったのに」</p>
+                <p>そんな想いから、CINEchrono TRAVELを制作しました。</p>
+              </div>
+            </div>
 
-    {/* 時代区分図表 */}
-    <div className="mb-12">
-      <h2 className="text-2xl font-bold mb-6 text-center">🗺️ 世界史の時代区分</h2>
-      <p className="text-center text-gray-600 mb-8">ヨーロッパ史を基準とした5つの時代区分で、歴史の大きな流れを把握できます。</p>
-      
-      {/* 時代区分バー */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[600px]">
-          {/* 世紀ラベル */}
-          <div className="flex text-xs text-gray-500 mb-2">
-            <div className="w-[12%] text-center">BC</div>
-            <div className="w-[16%] text-center">1-5世紀</div>
-            <div className="w-[20%] text-center">6-15世紀</div>
-            <div className="w-[18%] text-center">16-18世紀</div>
-            <div className="w-[18%] text-center">19-20世紀</div>
-            <div className="w-[16%] text-center">21世紀</div>
+            {/* 時代区分図表 */}
+            <div className="mb-12">
+              <h2 className="text-2xl font-bold mb-6 text-center">🗺️ 世界史の時代区分</h2>
+              <p className="text-center text-gray-600 mb-8">ヨーロッパ史を基準とした5つの時代区分で、歴史の大きな流れを把握できます。</p>
+              
+              {/* 時代区分バー */}
+              <div className="overflow-x-auto">
+                <div className="min-w-[600px]">
+                  {/* 世紀ラベル */}
+                  <div className="flex text-xs text-gray-500 mb-2">
+                    <div className="w-[12%] text-center">BC</div>
+                    <div className="w-[16%] text-center">1-5世紀</div>
+                    <div className="w-[20%] text-center">6-15世紀</div>
+                    <div className="w-[18%] text-center">16-18世紀</div>
+                    <div className="w-[18%] text-center">19-20世紀</div>
+                    <div className="w-[16%] text-center">21世紀</div>
+                  </div>
+                  
+                  {/* メインの時代区分バー */}
+                  <div className="flex h-14 rounded-lg overflow-hidden shadow-lg mb-4">
+                    <div className="w-[28%] bg-gradient-to-r from-amber-500 to-amber-600 flex items-center justify-center text-white font-bold">
+                      <span>古代</span>
+                    </div>
+                    <div className="w-[20%] bg-gradient-to-r from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-bold">
+                      <span>中世</span>
+                    </div>
+                    <div className="w-[18%] bg-gradient-to-r from-cyan-500 to-cyan-600 flex items-center justify-center text-white font-bold">
+                      <span>近世</span>
+                    </div>
+                    <div className="w-[18%] bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold">
+                      <span>近代</span>
+                    </div>
+                    <div className="w-[16%] bg-gradient-to-r from-purple-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                      <span>現代</span>
+                    </div>
+                  </div>
+
+                  {/* 区切りイベント */}
+                  <div className="flex text-xs relative h-16">
+                    <div className="w-[28%] flex justify-end pr-1">
+                      <div className="text-amber-700 text-center">
+                        <div className="border-l-2 border-amber-400 h-4 mx-auto"></div>
+                        <span>西ローマ滅亡<br/>(476年)</span>
+                      </div>
+                    </div>
+                    <div className="w-[20%] flex justify-end pr-1">
+                      <div className="text-emerald-700 text-center">
+                        <div className="border-l-2 border-emerald-400 h-4 mx-auto"></div>
+                        <span>大航海時代<br/>(1492年〜)</span>
+                      </div>
+                    </div>
+                    <div className="w-[18%] flex justify-end pr-1">
+                      <div className="text-cyan-700 text-center">
+                        <div className="border-l-2 border-cyan-400 h-4 mx-auto"></div>
+                        <span>フランス革命<br/>(1789年)</span>
+                      </div>
+                    </div>
+                    <div className="w-[18%] flex justify-end pr-1">
+                      <div className="text-blue-700 text-center">
+                        <div className="border-l-2 border-blue-400 h-4 mx-auto"></div>
+                        <span>冷戦終結<br/>(1991年)</span>
+                      </div>
+                    </div>
+                    <div className="w-[16%]"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 各時代の説明 */}
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold mb-6 text-center">📖 各時代の特徴</h2>
+              
+              <div className="bg-amber-50 rounded-lg p-6 border border-amber-200">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="px-3 py-1 bg-amber-500 text-white rounded-full text-sm font-bold">古代</span>
+                  <span className="text-gray-500 text-sm">〜500年</span>
+                </div>
+                <p className="text-gray-700">古代ギリシャ・古代ローマの時代。西ローマ帝国の滅亡（476年）をもって終了とされます。哲学、民主制、法律など、現代にも続く多くの概念がこの時代に生まれました。</p>
+                <p className="text-amber-700 text-sm mt-2">🎬 代表作品：グラディエーター、ベン・ハー、300〈スリーハンドレッド〉</p>
+              </div>
+
+              <div className="bg-emerald-50 rounded-lg p-6 border border-emerald-200">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="px-3 py-1 bg-emerald-500 text-white rounded-full text-sm font-bold">中世</span>
+                  <span className="text-gray-500 text-sm">501-1500年</span>
+                </div>
+                <p className="text-gray-700">封建制を基盤とした時代。西ローマ帝国滅亡後から大航海時代の始まりまで、約1000年間続きました。騎士、城、キリスト教会が社会の中心でした。</p>
+                <p className="text-emerald-700 text-sm mt-2">🎬 代表作品：ブレイブハート、キングダム・オブ・ヘブン、ジャンヌ・ダルク</p>
+              </div>
+
+              <div className="bg-cyan-50 rounded-lg p-6 border border-cyan-200">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="px-3 py-1 bg-cyan-500 text-white rounded-full text-sm font-bold">近世</span>
+                  <span className="text-gray-500 text-sm">1501-1800年</span>
+                </div>
+                <p className="text-gray-700">中世から近代への移行期。大航海時代の幕開け（1492年）からフランス革命前まで。ルネサンス、宗教改革、絶対王政の時代です。</p>
+                <p className="text-cyan-700 text-sm mt-2">🎬 代表作品：エリザベス、アマデウス、パイレーツ・オブ・カリビアン</p>
+              </div>
+
+              <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="px-3 py-1 bg-blue-500 text-white rounded-full text-sm font-bold">近代</span>
+                  <span className="text-gray-500 text-sm">1801-1945年</span>
+                </div>
+                <p className="text-gray-700">産業革命・フランス革命から第二次世界大戦終結まで。資本主義が発達し、国民国家が確立された激動の時代。二度の世界大戦を経験しました。</p>
+                <p className="text-blue-700 text-sm mt-2">🎬 代表作品：レ・ミゼラブル、1917、シンドラーのリスト</p>
+              </div>
+
+              <div className="bg-purple-50 rounded-lg p-6 border border-purple-200">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="px-3 py-1 bg-purple-500 text-white rounded-full text-sm font-bold">現代</span>
+                  <span className="text-gray-500 text-sm">1945年〜</span>
+                </div>
+                <p className="text-gray-700">第二次世界大戦後から現在まで。冷戦、グローバル化、デジタル革命を経て、私たちが生きる「今」へと続きます。</p>
+                <p className="text-purple-700 text-sm mt-2">🎬 代表作品：グッドナイト&グッドラック、ペンタゴン・ペーパーズ、ゼロ・ダーク・サーティ</p>
+              </div>
+            </div>
+
+            {/* 締めのメッセージ */}
+            <div className="mt-12 text-center">
+              <p className="text-gray-600 mb-4">さあ、年表を開いて、時代の旅に出かけましょう。</p>
+              <button onClick={() => setPage('timeline')} className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold hover:from-purple-700 hover:to-pink-700 shadow-lg transition-all">
+                🎬 年表を見る
+              </button>
+            </div>
           </div>
-          
-          {/* メインの時代区分バー */}
-          <div className="flex h-14 rounded-lg overflow-hidden shadow-lg mb-4">
-            <div className="w-[28%] bg-gradient-to-r from-amber-500 to-amber-600 flex items-center justify-center text-white font-bold">
-              <span>古代</span>
-            </div>
-            <div className="w-[20%] bg-gradient-to-r from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-bold">
-              <span>中世</span>
-            </div>
-            <div className="w-[18%] bg-gradient-to-r from-cyan-500 to-cyan-600 flex items-center justify-center text-white font-bold">
-              <span>近世</span>
-            </div>
-            <div className="w-[18%] bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold">
-              <span>近代</span>
-            </div>
-            <div className="w-[16%] bg-gradient-to-r from-purple-500 to-purple-600 flex items-center justify-center text-white font-bold">
-              <span>現代</span>
-            </div>
-          </div>
-
-          {/* 区切りイベント */}
-          <div className="flex text-xs relative h-8">
-            <div className="w-[28%] flex justify-end pr-1">
-              <div className="text-amber-700 text-center">
-                <div className="border-l-2 border-amber-400 h-4 mx-auto"></div>
-                <span>西ローマ滅亡<br/>(476年)</span>
-              </div>
-            </div>
-            <div className="w-[20%] flex justify-end pr-1">
-              <div className="text-emerald-700 text-center">
-                <div className="border-l-2 border-emerald-400 h-4 mx-auto"></div>
-                <span>大航海時代<br/>(1492年〜)</span>
-              </div>
-            </div>
-            <div className="w-[18%] flex justify-end pr-1">
-              <div className="text-cyan-700 text-center">
-                <div className="border-l-2 border-cyan-400 h-4 mx-auto"></div>
-                <span>フランス革命<br/>(1789年)</span>
-              </div>
-            </div>
-            <div className="w-[18%] flex justify-end pr-1">
-              <div className="text-blue-700 text-center">
-                <div className="border-l-2 border-blue-400 h-4 mx-auto"></div>
-                <span>冷戦終結<br/>(1991年)</span>
-              </div>
-            </div>
-            <div className="w-[16%]"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* 各時代の説明 */}
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold mb-6 text-center">📖 各時代の特徴</h2>
-      
-      <div className="bg-amber-50 rounded-lg p-6 border border-amber-200">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="px-3 py-1 bg-amber-500 text-white rounded-full text-sm font-bold">古代</span>
-          <span className="text-gray-500 text-sm">〜500年</span>
-        </div>
-        <p className="text-gray-700">古代ギリシャ・古代ローマの時代。西ローマ帝国の滅亡（476年）をもって終了とされます。哲学、民主制、法律など、現代にも続く多くの概念がこの時代に生まれました。</p>
-        <p className="text-amber-700 text-sm mt-2">🎬 代表作品：グラディエーター、ベン・ハー、300〈スリーハンドレッド〉</p>
-      </div>
-
-      <div className="bg-emerald-50 rounded-lg p-6 border border-emerald-200">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="px-3 py-1 bg-emerald-500 text-white rounded-full text-sm font-bold">中世</span>
-          <span className="text-gray-500 text-sm">501-1500年</span>
-        </div>
-        <p className="text-gray-700">封建制を基盤とした時代。西ローマ帝国滅亡後から大航海時代の始まりまで、約1000年間続きました。騎士、城、キリスト教会が社会の中心でした。</p>
-        <p className="text-emerald-700 text-sm mt-2">🎬 代表作品：ブレイブハート、キングダム・オブ・ヘブン、ジャンヌ・ダルク</p>
-      </div>
-
-      <div className="bg-cyan-50 rounded-lg p-6 border border-cyan-200">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="px-3 py-1 bg-cyan-500 text-white rounded-full text-sm font-bold">近世</span>
-          <span className="text-gray-500 text-sm">1501-1800年</span>
-        </div>
-        <p className="text-gray-700">中世から近代への移行期。大航海時代の幕開け（1492年）からフランス革命前まで。ルネサンス、宗教改革、絶対王政の時代です。</p>
-        <p className="text-cyan-700 text-sm mt-2">🎬 代表作品：エリザベス、アマデウス、パイレーツ・オブ・カリビアン</p>
-      </div>
-
-      <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="px-3 py-1 bg-blue-500 text-white rounded-full text-sm font-bold">近代</span>
-          <span className="text-gray-500 text-sm">1801-1945年</span>
-        </div>
-        <p className="text-gray-700">産業革命・フランス革命から第二次世界大戦終結まで。資本主義が発達し、国民国家が確立された激動の時代。二度の世界大戦を経験しました。</p>
-        <p className="text-blue-700 text-sm mt-2">🎬 代表作品：レ・ミゼラブル、1917、シンドラーのリスト</p>
-      </div>
-
-      <div className="bg-purple-50 rounded-lg p-6 border border-purple-200">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="px-3 py-1 bg-purple-500 text-white rounded-full text-sm font-bold">現代</span>
-          <span className="text-gray-500 text-sm">1945年〜</span>
-        </div>
-        <p className="text-gray-700">第二次世界大戦後から現在まで。冷戦、グローバル化、デジタル革命を経て、私たちが生きる「今」へと続きます。</p>
-        <p className="text-purple-700 text-sm mt-2">🎬 代表作品：グッドナイト&グッドラック、ペンタゴン・ペーパーズ、ゼロ・ダーク・サーティ</p>
-      </div>
-    </div>
-
-    {/* 締めのメッセージ */}
-    <div className="mt-12 text-center">
-      <p className="text-gray-600 mb-4">さあ、年表を開いて、時代の旅に出かけましょう。</p>
-      <button onClick={() => setPage('timeline')} className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold hover:from-purple-700 hover:to-pink-700 shadow-lg transition-all">
-        🎬 年表を見る
-      </button>
-    </div>
-  </div>
-)}
+        )}
 
         {page === 'articles' && (
           <div className="max-w-4xl mx-auto px-4 py-16">
@@ -1764,7 +1843,31 @@ const App = () => {
                     </div>
                   )}
                   {sel.synopsis && <div className="mb-4"><div className="text-sm text-gray-500 mb-2">あらすじ</div><p className="text-gray-700">{sel.synopsis}</p></div>}
-                  {sel.links?.length > 0 && <div className="space-y-2 mt-6">{sel.links.map((l, i) => <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className="block w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-center font-bold">{l.service}で見る</a>)}</div>}
+                  {sel.links?.length > 0 && (() => {
+                    const validLinks = sel.links.filter(l => l.url);
+                    const gridClass = validLinks.length <= 3 
+                      ? `grid grid-cols-${validLinks.length} gap-2` 
+                      : 'grid grid-cols-2 gap-2';
+                    return (
+                      <div className={`mt-6 ${validLinks.length <= 3 ? 'flex gap-2' : 'grid grid-cols-2 gap-2'}`}>
+                        {validLinks.map((l, i) => {
+                          const serviceInfo = getServiceInfo(l.service);
+                          const categoryInfo = linkServices[l.category];
+                          const displayName = l.customName || (serviceInfo ? serviceInfo.name : l.service) || 'リンク';
+                          const colorClass = serviceInfo ? serviceInfo.color : 'from-purple-600 to-pink-600';
+                          const platformText = l.platform ? `（${gamePlatforms.find(p => p.id === l.platform)?.name || l.platform}）` : '';
+                          const buttonText = categoryInfo?.buttonText || 'で見る';
+                          const icon = serviceInfo?.icon || '🔗';
+                          return (
+                            <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className={`flex-1 flex items-center justify-center gap-1 py-3 px-2 bg-gradient-to-r ${colorClass} text-white rounded-lg text-center font-bold hover:opacity-90 transition-opacity text-sm`}>
+                              <span>{icon}</span>
+                              <span className="truncate">{displayName}{platformText}{buttonText}</span>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                   {sel.topic && (
                     <div className="mt-6 pt-6 border-t">
                       <div className="text-sm text-gray-500 mb-2">📖 関連記事</div>
@@ -1941,8 +2044,67 @@ const App = () => {
                     <button type="button" onClick={() => setCf(p => ({ ...p, youtubeUrls: [...p.youtubeUrls, ''] }))} className="text-purple-600 text-sm font-semibold">+ 動画を追加</button>
                     <p className="text-xs text-gray-500 mt-1">予告編や名シーンなど、複数の動画を登録できます</p>
                   </div>
-                  {cf.links.map((l, i) => <div key={i} className="flex gap-2"><input value={l.service} onChange={e => { const nl = [...cf.links]; nl[i].service = e.target.value; setCf(p => ({ ...p, links: nl })); }} placeholder="サービス名 ※任意" className="flex-1 px-4 py-2 bg-white border rounded-lg" /><input value={l.url} onChange={e => { const nl = [...cf.links]; nl[i].url = e.target.value; setCf(p => ({ ...p, links: nl })); }} placeholder="URL" className="flex-1 px-4 py-2 bg-white border rounded-lg" /></div>)}
-                  <button type="button" onClick={() => setCf(p => ({ ...p, links: [...p.links, { service: '', url: '' }] }))} className="text-purple-600 text-sm font-semibold">+ リンクを追加</button>
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-gray-700">🔗 視聴・購入リンク</label>
+                    {cf.links.map((l, i) => (
+                      <div key={i} className="p-3 bg-white border rounded-lg space-y-2">
+                        <div className="flex gap-2">
+                          <select 
+                            value={l.category} 
+                            onChange={e => { const nl = [...cf.links]; nl[i].category = e.target.value; nl[i].service = ''; nl[i].customName = ''; setCf(p => ({ ...p, links: nl })); }} 
+                            className="px-3 py-2 bg-gray-50 border rounded-lg text-sm"
+                          >
+                            <option value="watch">📺 視聴する</option>
+                            <option value="buy">🛒 購入する</option>
+                            <option value="book">📚 電子書籍・本</option>
+                            <option value="game">🎮 ゲーム</option>
+                            <option value="other">🔗 その他</option>
+                          </select>
+                          {l.category === 'other' ? (
+                            <input 
+                              value={l.customName || ''} 
+                              onChange={e => { const nl = [...cf.links]; nl[i].customName = e.target.value; setCf(p => ({ ...p, links: nl })); }} 
+                              placeholder="サービス名を入力" 
+                              className="flex-1 px-3 py-2 bg-gray-50 border rounded-lg text-sm" 
+                            />
+                          ) : (
+                            <select 
+                              value={l.service} 
+                              onChange={e => { const nl = [...cf.links]; nl[i].service = e.target.value; setCf(p => ({ ...p, links: nl })); }} 
+                              className="flex-1 px-3 py-2 bg-gray-50 border rounded-lg text-sm"
+                            >
+                              <option value="">サービスを選択</option>
+                              {linkServices[l.category]?.services.map(s => (
+                                <option key={s.id} value={s.id}>{s.icon} {s.name}</option>
+                              ))}
+                            </select>
+                          )}
+                          <button type="button" onClick={() => { const nl = cf.links.filter((_, idx) => idx !== i); setCf(p => ({ ...p, links: nl.length > 0 ? nl : [{ category: 'watch', service: '', platform: '', url: '', customName: '' }] })); }} className="px-2 text-red-500 hover:bg-red-50 rounded">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {l.category === 'game' && (
+                          <select 
+                            value={l.platform || ''} 
+                            onChange={e => { const nl = [...cf.links]; nl[i].platform = e.target.value; setCf(p => ({ ...p, links: nl })); }} 
+                            className="w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm"
+                          >
+                            <option value="">機種を選択（任意）</option>
+                            {gamePlatforms.map(p => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                        )}
+                        <input 
+                          value={l.url} 
+                          onChange={e => { const nl = [...cf.links]; nl[i].url = e.target.value; setCf(p => ({ ...p, links: nl })); }} 
+                          placeholder="URL" 
+                          className="w-full px-3 py-2 bg-white border rounded-lg text-sm" 
+                        />
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => setCf(p => ({ ...p, links: [...p.links, { category: 'watch', service: '', platform: '', url: '', customName: '' }] }))} className="text-purple-600 text-sm font-semibold">+ リンクを追加</button>
+                  </div>
                   <div className="pt-4 border-t">
                     <label className="block font-semibold mb-2">📖 トピック記事（任意）</label>
                     <input value={cf.topic.title} onChange={e => setCf(p => ({ ...p, topic: { ...p.topic, title: e.target.value }}))} placeholder="記事タイトル" className="w-full px-4 py-2 bg-white border rounded-lg mb-2" />
