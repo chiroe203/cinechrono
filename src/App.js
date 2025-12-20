@@ -2069,8 +2069,6 @@ const App = () => {
                       ))}
                     </div>
                   </div>
-                  <input list="s1" value={cf.subEra} onChange={e => setCf(p => ({ ...p, subEra: e.target.value }))} placeholder="時代区分（例: ローマ帝国）※任意" className="w-full px-4 py-3 bg-white border rounded-lg" />
-                  <datalist id="s1">{[...new Set(sortedData.filter(i => i.subEra).map(i => i.subEra))].map((s, i) => <option key={i} value={s} />)}</datalist>
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700">🔗 親となる時代区分（任意）</label>
                     <select 
@@ -2079,11 +2077,11 @@ const App = () => {
                       className="w-full px-4 py-3 bg-white border rounded-lg"
                     >
                       <option value="">なし</option>
-                      {[...new Set(sortedData.filter(i => i.subEra && i.subEra !== cf.subEra).map(i => i.subEra))].map(sub => (
+                      {[...new Set(sortedData.filter(i => i.subEra).map(i => i.subEra))].map(sub => (
                         <option key={sub} value={sub}>{sub}</option>
                       ))}
                     </select>
-                    <p className="text-xs text-gray-500">例：ポーツマス条約関連の作品を「日露戦争」グループ内に表示したい場合に選択</p>
+                    <p className="text-xs text-gray-500">例：第二次世界大戦関連の作品を「第二次世界大戦」グループ内に表示したい場合に選択</p>
                   </div>
                   <input value={cf.title} onChange={e => setCf(p => ({ ...p, title: e.target.value }))} placeholder="タイトル ※必須" className="w-full px-4 py-3 bg-white border rounded-lg" required />
                   <div className="space-y-2">
