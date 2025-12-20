@@ -1861,29 +1861,61 @@ const App = () => {
                     </div>
                   </div>
 
-                  {/* 対応表 */}
-                  <div className="mt-4 bg-gray-50 rounded-lg p-4">
-                    <div className="grid grid-cols-5 gap-2 text-xs">
-                      <div className="text-center">
-                        <span className="inline-block px-2 py-1 bg-amber-100 text-amber-800 rounded font-bold">古代</span>
-                        <p className="mt-1 text-gray-600">縄文〜平安</p>
-                      </div>
-                      <div className="text-center">
-                        <span className="inline-block px-2 py-1 bg-emerald-100 text-emerald-800 rounded font-bold">中世</span>
-                        <p className="mt-1 text-gray-600">鎌倉・室町</p>
-                      </div>
-                      <div className="text-center">
-                        <span className="inline-block px-2 py-1 bg-cyan-100 text-cyan-800 rounded font-bold">近世</span>
-                        <p className="mt-1 text-gray-600">安土桃山・江戸</p>
-                      </div>
-                      <div className="text-center">
-                        <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded font-bold">近代</span>
-                        <p className="mt-1 text-gray-600">明治〜終戦</p>
-                      </div>
-                      <div className="text-center">
-                        <span className="inline-block px-2 py-1 bg-purple-100 text-purple-800 rounded font-bold">現代</span>
-                        <p className="mt-1 text-gray-600">戦後〜令和</p>
-                      </div>
+{/* 日本史の時代区分（参考） */}
+            <div className="mb-12 mt-8">
+              <h3 className="text-lg font-bold mb-4 text-center text-red-700">🇯🇵 日本史との対比（参考）</h3>
+              
+              <div className="overflow-x-auto">
+                <div className="min-w-[600px]">
+                  {/* 日本史の時代ラベル */}
+                  <div className="flex text-xs relative">
+                    <div className="w-[18%] text-center text-amber-700">
+                      <div className="border-l-2 border-amber-400 h-4 mx-auto"></div>
+                      <span>弥生〜古墳<br/>(BC3世紀〜6世紀)</span>
+                    </div>
+                    <div className="w-[6%] text-center text-rose-700">
+                      <div className="border-l-2 border-rose-400 h-4 mx-auto"></div>
+                      <span>飛鳥・奈良<br/>(593-794)</span>
+                    </div>
+                    <div className="w-[14%] text-center text-pink-700">
+                      <div className="border-l-2 border-pink-400 h-4 mx-auto"></div>
+                      <span>平安<br/>(794-1185)</span>
+                    </div>
+                    <div className="w-[6%] text-center text-emerald-700">
+                      <div className="border-l-2 border-emerald-400 h-4 mx-auto"></div>
+                      <span>鎌倉<br/>(1185-1333)</span>
+                    </div>
+                    <div className="w-[8%] text-center text-emerald-700">
+                      <div className="border-l-2 border-emerald-400 h-4 mx-auto"></div>
+                      <span>室町<br/>(1336-1573)</span>
+                    </div>
+                    <div className="w-[4%] text-center text-cyan-700">
+                      <div className="border-l-2 border-cyan-400 h-4 mx-auto"></div>
+                      <span>安土<br/>桃山</span>
+                    </div>
+                    <div className="w-[14%] text-center text-cyan-700">
+                      <div className="border-l-2 border-cyan-400 h-4 mx-auto"></div>
+                      <span>江戸<br/>(1603-1868)</span>
+                    </div>
+                    <div className="w-[6%] text-center text-blue-700">
+                      <div className="border-l-2 border-blue-400 h-4 mx-auto"></div>
+                      <span>明治<br/>(1868-1912)</span>
+                    </div>
+                    <div className="w-[4%] text-center text-blue-700">
+                      <div className="border-l-2 border-blue-400 h-4 mx-auto"></div>
+                      <span>大正<br/>(1912-)</span>
+                    </div>
+                    <div className="w-[8%] text-center text-indigo-700">
+                      <div className="border-l-2 border-indigo-400 h-4 mx-auto"></div>
+                      <span>昭和<br/>(1926-1989)</span>
+                    </div>
+                    <div className="w-[8%] text-center text-purple-700">
+                      <div className="border-l-2 border-purple-400 h-4 mx-auto"></div>
+                      <span>平成<br/>(1989-2019)</span>
+                    </div>
+                    <div className="w-[4%] text-center text-purple-700">
+                      <div className="border-l-2 border-purple-400 h-4 mx-auto"></div>
+                      <span>令和<br/>(2019-)</span>
                     </div>
                   </div>
                 </div>
