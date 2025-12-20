@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Film, X, Gamepad2, BookMarked, Settings, Clock, Menu, ExternalLink, LogOut, Loader2, Pencil, Swords, ScrollText, MapPin, ChevronLeft, ChevronRight, Tv, Skull, AlertCircle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Film, X, Gamepad2, BookMarked, Settings, Clock, Menu, ExternalLink, LogOut, Loader2, Pencil, Swords, ScrollText, MapPin, ChevronLeft, ChevronRight, Tv, Skull, AlertCircle, ToggleLeft, ToggleRight, Filter } from 'lucide-react';
 import { db, auth, fetchTimelineData, addTimelineItem, deleteTimelineItem, loginAdmin, logoutAdmin } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
@@ -143,6 +143,23 @@ const App = () => {
   const [eventSort, setEventSort] = useState('year');
   const [subEraSort, setSubEraSort] = useState('year');
   const [historyFilter, setHistoryFilter] = useState('all'); // all, japan, world
+  // カテゴリーフィルター
+  const [categoryFilter, setCategoryFilter] = useState({
+    movie: true,
+    drama: true,
+    manga: true,
+    anime: true,
+    game: true
+  });
+  // フィルターUI内の一時的な選択状態
+  const [tempCategoryFilter, setTempCategoryFilter] = useState({
+    movie: true,
+    drama: true,
+    manga: true,
+    anime: true,
+    game: true
+  });
+  const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   // 管理画面用フィルター
   const [adminContentFilter, setAdminContentFilter] = useState('all');
   const [adminEventFilter, setAdminEventFilter] = useState('all');
@@ -317,7 +334,7 @@ const App = () => {
   // 単一タイプのスタイル
   const styleBase = { 
     movie: { b: 'border-blue-500', txt: 'text-blue-700', ic: Film, icc: 'text-blue-600', bg: 'bg-blue-50' }, 
-    drama: { b: 'border-blue-500', txt: 'text-blue-700', ic: Tv, icc: 'text-blue-600', bg: 'bg-blue-50' }, 
+    drama: { b: 'border-cyan-500', txt: 'text-cyan-700', ic: Tv, icc: 'text-cyan-600', bg: 'bg-cyan-50' }, 
     manga: { b: 'border-green-500', txt: 'text-green-700', ic: BookMarked, icc: 'text-green-600', bg: 'bg-green-50' }, 
     anime: { b: 'border-green-500', txt: 'text-green-700', ic: Tv, icc: 'text-green-600', bg: 'bg-green-50' },
     game: { b: 'border-yellow-500', txt: 'text-yellow-700', ic: Gamepad2, icc: 'text-yellow-600', bg: 'bg-yellow-50' }
@@ -332,8 +349,11 @@ const App = () => {
   
   const style = (t) => {
     const types = getTypes(t);
-    // 最初のタイプでスタイルを決定（緑系は manga/anime 共通）
-    const primary = types.includes('manga') || types.includes('anime') ? 'manga' : types[0];
+    // 優先順位: 映画(青) > ドラマ(ティール) > ゲーム(黄) > 漫画・アニメ(緑)
+    const primary = types.includes('movie') ? 'movie' 
+      : types.includes('drama') ? 'drama'
+      : types.includes('game') ? 'game'
+      : types[0];
     return styleBase[primary] || styleBase.movie;
   };
   
@@ -1141,25 +1161,86 @@ const App = () => {
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent cursor-pointer" onClick={() => setPage('timeline')}>CINEchrono TRAVEL</h1>
           {/* 歴史フィルター */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
-            <button 
-              onClick={() => setHistoryFilter('all')} 
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${historyFilter === 'all' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}
-            >
-              🌍 全部
-            </button>
-            <button 
-              onClick={() => setHistoryFilter('japan')} 
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${historyFilter === 'japan' ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}
-            >
-              🇯🇵 日本史
-            </button>
-            <button 
-              onClick={() => setHistoryFilter('world')} 
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${historyFilter === 'world' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}
-            >
-              🌐 世界史
-            </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
+              <button 
+                onClick={() => setHistoryFilter('all')} 
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${historyFilter === 'all' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}
+              >
+                🌍 全部
+              </button>
+              <button 
+                onClick={() => setHistoryFilter('japan')} 
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${historyFilter === 'japan' ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}
+              >
+                🇯🇵 日本史
+              </button>
+              <button 
+                onClick={() => setHistoryFilter('world')} 
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${historyFilter === 'world' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}
+              >
+                🌐 世界史
+              </button>
+            </div>
+            {/* カテゴリーフィルター */}
+            <div className="relative">
+              <button 
+                onClick={() => {
+                  if (!showCategoryFilter) {
+                    // 開くときに現在の適用済みフィルターをコピー
+                    setTempCategoryFilter({ ...categoryFilter });
+                  }
+                  setShowCategoryFilter(!showCategoryFilter);
+                }}
+                className={`p-2 rounded-lg transition-all ${Object.values(categoryFilter).every(v => v) ? 'hover:bg-gray-100 text-gray-600' : 'bg-purple-100 text-purple-700'}`}
+                title="カテゴリーで絞り込み"
+              >
+                <Filter className="w-5 h-5" />
+              </button>
+              {showCategoryFilter && (
+                <>
+                  {/* 背景のオーバーレイ */}
+                  <div className="fixed inset-0 z-40" onClick={() => setShowCategoryFilter(false)} />
+                  {/* フィルターメニュー */}
+                  <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-xl border p-4 z-50 min-w-[200px]">
+                    <div className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                      <Filter className="w-4 h-4" />
+                      カテゴリーで絞り込み
+                    </div>
+                    <div className="space-y-2">
+                      {[
+                        { id: 'movie', label: '🎬 映画', color: 'blue' },
+                        { id: 'drama', label: '📺 ドラマ', color: 'blue' },
+                        { id: 'manga', label: '📚 漫画', color: 'green' },
+                        { id: 'anime', label: '📺 アニメ', color: 'green' },
+                        { id: 'game', label: '🎮 ゲーム', color: 'yellow' }
+                      ].map(cat => (
+                        <label key={cat.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded p-2 -mx-2">
+                          <input
+                            type="checkbox"
+                            checked={tempCategoryFilter[cat.id]}
+                            onChange={(e) => setTempCategoryFilter(prev => ({ ...prev, [cat.id]: e.target.checked }))}
+                            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                          />
+                          <span className="text-sm">{cat.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="mt-3 pt-3 border-t">
+                      <button 
+                        onClick={() => {
+                          setCategoryFilter({ ...tempCategoryFilter });
+                          setShowCategoryFilter(false);
+                        }}
+                        className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-bold text-sm hover:from-purple-700 hover:to-pink-700"
+                      >
+                        表示
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
           <button onClick={() => setMenu(!menu)} className="p-2 hover:bg-gray-100 rounded-lg"><Menu className="w-6 h-6" /></button>
         </div>
@@ -1190,6 +1271,17 @@ const App = () => {
                 const passesFilter = (item) => {
                   if (historyFilter === 'all') return true;
                   return hasHistoryCategory(item, historyFilter);
+                };
+                
+                // カテゴリーフィルター関数（コンテンツ専用）
+                const passesCategoryFilter = (content) => {
+                  // typeプロパティがない場合（イベントなど）は通過
+                  if (!content.type) return true;
+                  // すべて選択されている場合は通過
+                  if (Object.values(categoryFilter).every(v => v)) return true;
+                  // コンテンツのカテゴリー（type）のうち、少なくとも1つが選択されているかチェック
+                  const contentTypes = Array.isArray(content.type) ? content.type : [content.type];
+                  return contentTypes.some(t => categoryFilter[t]);
                 };
                 
                 // 全データから時代区分グループを構築（大区分をまたいで参照可能に）
@@ -1249,7 +1341,7 @@ const App = () => {
                 // アイテムを時代区分グループに追加（parentSubEraを持つコンテンツは別途処理、フィルター適用）
                 eraData.forEach(item => {
                   // フィルターを通過したコンテンツとイベントのみ
-                  const filteredContent = (item.content || []).filter(c => passesFilter(c));
+                  const filteredContent = (item.content || []).filter(c => passesFilter(c) && passesCategoryFilter(c));
                   const filteredEvents = (item.events || []).filter(ev => passesFilter(ev));
                   
                   const hasContent = filteredContent.length > 0;
@@ -1325,7 +1417,7 @@ const App = () => {
                 sortedData.forEach(item => {
                   if (item.mainEra === era.id) return; // このeraのデータは既に処理済み
                   
-                  const filteredContent = (item.content || []).filter(c => passesFilter(c));
+                  const filteredContent = (item.content || []).filter(c => passesFilter(c) && passesCategoryFilter(c));
                   
                   filteredContent.forEach((c, idx) => {
                     // このeraの時代区分を親に持つコンテンツを探す
