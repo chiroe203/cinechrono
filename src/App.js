@@ -59,10 +59,11 @@ const App = () => {
   ];
 
   // アフィリエイトリンクのサービス定義
+  // 表示順序: watch → book → buy
   const linkServices = {
     watch: {
       label: '📺 視聴する',
-      buttonText: 'で見る',
+      order: 1,
       services: [
         { id: 'amazon_prime', name: 'Prime Video', icon: '▶️', color: 'from-slate-700 to-slate-800', textColor: 'text-white' },
         { id: 'netflix', name: 'Netflix', icon: '▶️', color: 'from-red-600 to-red-600', textColor: 'text-white' },
@@ -71,31 +72,31 @@ const App = () => {
         { id: 'disney', name: 'Disney+', icon: '▶️', color: 'from-cyan-600 to-teal-700', textColor: 'text-white' },
       ]
     },
-    buy: {
-      label: '🛒 購入する',
-      buttonText: '',
-      buttonStyle: 'logo',
+    book: {
+      label: '📚 電子書籍で読む',
+      order: 2,
       services: [
-        { id: 'amazon', name: 'amazon', icon: '', logoStyle: 'amazon' },
-        { id: 'rakuten', name: '楽天市場', icon: '', logoStyle: 'rakuten' },
-        { id: 'yahoo', name: 'Yahoo!ショッピング', icon: '', logoStyle: 'yahoo' },
+        { id: 'kindle', name: 'Kindle版', icon: '📖', color: 'from-orange-500 to-orange-600', textColor: 'text-white' },
+        { id: 'kindle_unlimited', name: 'Kindle Unlimited', icon: '📖', color: 'from-orange-500 to-orange-600', textColor: 'text-white' },
+        { id: 'amazon_book', name: 'Amazon（紙の本）', icon: '📖', color: 'from-orange-500 to-orange-600', textColor: 'text-white' },
+        { id: 'rakuten_kobo', name: '楽天Kobo', icon: '📖', color: 'from-red-600 to-red-700', textColor: 'text-white' },
+        { id: 'rakuten_books', name: '楽天Books', icon: '📖', color: 'from-red-600 to-red-700', textColor: 'text-white' },
+        { id: 'renta', name: 'Renta!', icon: '📖', color: 'from-lime-400 to-lime-500', textColor: 'text-white' },
       ]
     },
-    book: {
-      label: '📚 電子書籍・本',
-      buttonText: 'で読む',
+    buy: {
+      label: '🛒 探す',
+      order: 3,
+      buttonStyle: 'underline',
       services: [
-        { id: 'kindle', name: 'Kindle版', icon: '📖', color: 'from-amber-500 to-orange-600', textColor: 'text-white' },
-        { id: 'kindle_unlimited', name: 'Kindle Unlimited', icon: '📖', color: 'from-amber-600 to-orange-700', textColor: 'text-white' },
-        { id: 'amazon_book', name: 'Amazon（紙の本）', icon: '📖', color: 'from-amber-500 to-orange-600', textColor: 'text-white' },
-        { id: 'rakuten_kobo', name: '楽天Kobo', icon: '📖', color: 'from-red-700 to-red-900', textColor: 'text-white' },
-        { id: 'rakuten_books', name: '楽天Books', icon: '📖', color: 'from-red-700 to-red-900', textColor: 'text-white' },
-        { id: 'renta', name: 'Renta!', icon: '📖', color: 'from-lime-500 to-lime-700', textColor: 'text-white' },
+        { id: 'amazon', name: 'Amazon', underlineColor: 'bg-amber-400' },
+        { id: 'rakuten', name: '楽天市場', underlineColor: 'bg-red-600' },
+        { id: 'yahoo', name: 'Yahoo!ショッピング', underlineColor: 'bg-blue-500' },
       ]
     },
     game: {
       label: '🎮 ゲームを入手',
-      buttonText: 'で入手',
+      order: 4,
       services: [
         { id: 'psstore', name: 'PlayStation Store', icon: '🎮', color: 'from-blue-600 to-blue-800', textColor: 'text-white' },
         { id: 'nintendo', name: 'Nintendo eShop', icon: '🎮', color: 'from-red-500 to-red-700', textColor: 'text-white' },
@@ -106,7 +107,7 @@ const App = () => {
     },
     other: {
       label: '🔗 その他',
-      buttonText: 'で見る',
+      order: 5,
       services: []
     }
   };
@@ -1954,41 +1955,79 @@ const App = () => {
                   {(adminMode || affiliateEnabled) && sel.links?.length > 0 && (() => {
                     const validLinks = sel.links.filter(l => l.url);
                     if (validLinks.length === 0) return null;
+                    
+                    // カテゴリごとにグループ化し、定義順にソート
+                    const categoryOrder = ['watch', 'book', 'buy', 'game', 'other'];
+                    const groupedLinks = {};
+                    
+                    validLinks.forEach(link => {
+                      const cat = link.category || 'other';
+                      if (!groupedLinks[cat]) groupedLinks[cat] = [];
+                      groupedLinks[cat].push(link);
+                    });
+                    
+                    // 各カテゴリ内をサービス定義順にソート
+                    Object.keys(groupedLinks).forEach(cat => {
+                      const categoryInfo = linkServices[cat];
+                      if (categoryInfo?.services) {
+                        const serviceOrder = categoryInfo.services.map(s => s.id);
+                        groupedLinks[cat].sort((a, b) => {
+                          const aIdx = serviceOrder.indexOf(a.service);
+                          const bIdx = serviceOrder.indexOf(b.service);
+                          return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+                        });
+                      }
+                    });
+                    
+                    // カテゴリ順に並べ替え
+                    const sortedCategories = Object.keys(groupedLinks).sort((a, b) => {
+                      return categoryOrder.indexOf(a) - categoryOrder.indexOf(b);
+                    });
+                    
                     return (
-                      <div className={`mt-6 ${validLinks.length <= 3 ? 'flex gap-2' : 'grid grid-cols-2 gap-2'}`}>
-                        {validLinks.map((l, i) => {
-                          const serviceInfo = getServiceInfo(l.service);
-                          const categoryInfo = linkServices[l.category];
-                          const displayName = l.customName || (serviceInfo ? serviceInfo.name : l.service) || 'リンク';
-                          const platformText = l.platform ? `（${gamePlatforms.find(p => p.id === l.platform)?.name || l.platform}）` : '';
-                          const buttonText = categoryInfo?.buttonText || 'で見る';
-                          const icon = serviceInfo?.icon || '🔗';
-                          
-                          // 購入系（ロゴスタイル）
-                          if (categoryInfo?.buttonStyle === 'logo') {
-                            const logoStyles = {
-                              amazon: { text: 'amazon', textClass: 'text-gray-900 font-medium tracking-tight', borderClass: 'border-gray-300' },
-                              rakuten: { text: '楽天市場', textClass: 'text-red-600 font-bold', borderClass: 'border-gray-300' },
-                              yahoo: { text: 'Yahoo!ショッピング', textClass: 'text-red-500 font-bold text-sm', borderClass: 'border-gray-300' },
-                            };
-                            const logoStyle = logoStyles[serviceInfo?.logoStyle] || { text: displayName, textClass: 'text-gray-800', borderClass: 'border-gray-300' };
-                            return (
-                              <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className={`flex-1 flex items-center justify-center py-4 px-3 bg-white border ${logoStyle.borderClass} rounded-lg hover:bg-gray-50 transition-colors min-h-[56px]`}>
-                                <span className={logoStyle.textClass}>{logoStyle.text}</span>
-                              </a>
-                            );
-                          }
-                          
-                          // 動画配信系・その他（グラデーションスタイル）
-                          const colorClass = serviceInfo?.color || 'from-purple-600 to-pink-600';
-                          const textColorClass = serviceInfo?.textColor || 'text-white';
-                          const hasBorder = serviceInfo?.border;
+                      <div className="mt-6 space-y-3">
+                        {sortedCategories.map(cat => {
+                          const links = groupedLinks[cat];
+                          const categoryInfo = linkServices[cat];
+                          const isUnderlineStyle = categoryInfo?.buttonStyle === 'underline';
                           
                           return (
-                            <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className={`flex-1 flex items-center justify-center gap-1 py-3 px-2 bg-gradient-to-r ${colorClass} ${textColorClass} ${hasBorder ? 'border border-gray-300' : ''} rounded-lg text-center font-bold hover:opacity-90 transition-opacity text-sm`}>
-                              <span>{icon}</span>
-                              <span className="truncate">{displayName}{platformText}{buttonText}</span>
-                            </a>
+                            <div key={cat} className="bg-gray-50 rounded-lg p-3">
+                              <div className="text-xs text-gray-500 mb-2 font-medium">{categoryInfo?.label || cat}</div>
+                              <div className={links.length <= 3 ? 'flex gap-2' : 'grid grid-cols-2 gap-2'}>
+                                {links.map((l, i) => {
+                                  const serviceInfo = getServiceInfo(l.service);
+                                  const displayName = l.customName || (serviceInfo ? serviceInfo.name : l.service) || 'リンク';
+                                  const platformText = l.platform ? `（${gamePlatforms.find(p => p.id === l.platform)?.name || l.platform}）` : '';
+                                  
+                                  // 購入系（下線スタイル）
+                                  if (isUnderlineStyle) {
+                                    const underlineColor = serviceInfo?.underlineColor || 'bg-gray-400';
+                                    return (
+                                      <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors overflow-hidden">
+                                        <div className="flex-1 flex items-center justify-center py-3 px-2">
+                                          <span className="text-gray-900 text-sm font-medium">{displayName}で探す</span>
+                                        </div>
+                                        <div className={`h-1 ${underlineColor}`}></div>
+                                      </a>
+                                    );
+                                  }
+                                  
+                                  // 動画配信系・電子書籍・ゲーム（グラデーションスタイル）
+                                  const colorClass = serviceInfo?.color || 'from-purple-600 to-pink-600';
+                                  const textColorClass = serviceInfo?.textColor || 'text-white';
+                                  const hasBorder = serviceInfo?.border;
+                                  const icon = serviceInfo?.icon || '🔗';
+                                  
+                                  return (
+                                    <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className={`flex-1 flex items-center justify-center gap-1 py-3 px-2 bg-gradient-to-r ${colorClass} ${textColorClass} ${hasBorder ? 'border border-gray-300' : ''} rounded-lg text-center font-bold hover:opacity-90 transition-opacity text-sm`}>
+                                      <span>{icon}</span>
+                                      <span className="truncate">{displayName}{platformText}</span>
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
