@@ -317,6 +317,7 @@ const App = () => {
   // 単一タイプのスタイル
   const styleBase = { 
     movie: { b: 'border-blue-500', txt: 'text-blue-700', ic: Film, icc: 'text-blue-600', bg: 'bg-blue-50' }, 
+    drama: { b: 'border-blue-500', txt: 'text-blue-700', ic: Tv, icc: 'text-blue-600', bg: 'bg-blue-50' }, 
     manga: { b: 'border-green-500', txt: 'text-green-700', ic: BookMarked, icc: 'text-green-600', bg: 'bg-green-50' }, 
     anime: { b: 'border-green-500', txt: 'text-green-700', ic: Tv, icc: 'text-green-600', bg: 'bg-green-50' },
     game: { b: 'border-yellow-500', txt: 'text-yellow-700', ic: Gamepad2, icc: 'text-yellow-600', bg: 'bg-yellow-50' }
@@ -336,7 +337,7 @@ const App = () => {
     return styleBase[primary] || styleBase.movie;
   };
   
-  const labelBase = { movie: '🎬 映画', manga: '📚 漫画', anime: '📺 アニメ', game: '🎮 ゲーム' };
+  const labelBase = { movie: '🎬 映画', drama: '📺 ドラマ', manga: '📚 漫画', anime: '📺 アニメ', game: '🎮 ゲーム' };
   
   const label = (t) => {
     const types = getTypes(t);
@@ -349,6 +350,7 @@ const App = () => {
     return types.map(type => {
       switch(type) {
         case 'movie': return { icon: Film, color: 'text-blue-600' };
+        case 'drama': return { icon: Tv, color: 'text-blue-600' };
         case 'manga': return { icon: BookMarked, color: 'text-green-600' };
         case 'anime': return { icon: Tv, color: 'text-green-600' };
         case 'game': return { icon: Gamepad2, color: 'text-yellow-600' };
@@ -1861,67 +1863,6 @@ const App = () => {
                     </div>
                   </div>
 
-{/* 日本史の時代区分（参考） */}
-            <div className="mb-12 mt-8">
-              <h3 className="text-lg font-bold mb-4 text-center text-red-700">🇯🇵 日本史との対比（参考）</h3>
-              
-              <div className="overflow-x-auto">
-                <div className="min-w-[600px]">
-                  {/* 日本史の時代ラベル */}
-                  <div className="flex text-xs relative">
-                    <div className="w-[18%] text-center text-amber-700">
-                      <div className="border-l-2 border-amber-400 h-4 mx-auto"></div>
-                      <span>弥生〜古墳<br/>(BC3世紀〜6世紀)</span>
-                    </div>
-                    <div className="w-[6%] text-center text-rose-700">
-                      <div className="border-l-2 border-rose-400 h-4 mx-auto"></div>
-                      <span>飛鳥・奈良<br/>(593-794)</span>
-                    </div>
-                    <div className="w-[14%] text-center text-pink-700">
-                      <div className="border-l-2 border-pink-400 h-4 mx-auto"></div>
-                      <span>平安<br/>(794-1185)</span>
-                    </div>
-                    <div className="w-[6%] text-center text-emerald-700">
-                      <div className="border-l-2 border-emerald-400 h-4 mx-auto"></div>
-                      <span>鎌倉<br/>(1185-1333)</span>
-                    </div>
-                    <div className="w-[8%] text-center text-emerald-700">
-                      <div className="border-l-2 border-emerald-400 h-4 mx-auto"></div>
-                      <span>室町<br/>(1336-1573)</span>
-                    </div>
-                    <div className="w-[4%] text-center text-cyan-700">
-                      <div className="border-l-2 border-cyan-400 h-4 mx-auto"></div>
-                      <span>安土<br/>桃山</span>
-                    </div>
-                    <div className="w-[14%] text-center text-cyan-700">
-                      <div className="border-l-2 border-cyan-400 h-4 mx-auto"></div>
-                      <span>江戸<br/>(1603-1868)</span>
-                    </div>
-                    <div className="w-[6%] text-center text-blue-700">
-                      <div className="border-l-2 border-blue-400 h-4 mx-auto"></div>
-                      <span>明治<br/>(1868-1912)</span>
-                    </div>
-                    <div className="w-[4%] text-center text-blue-700">
-                      <div className="border-l-2 border-blue-400 h-4 mx-auto"></div>
-                      <span>大正<br/>(1912-)</span>
-                    </div>
-                    <div className="w-[8%] text-center text-indigo-700">
-                      <div className="border-l-2 border-indigo-400 h-4 mx-auto"></div>
-                      <span>昭和<br/>(1926-1989)</span>
-                    </div>
-                    <div className="w-[8%] text-center text-purple-700">
-                      <div className="border-l-2 border-purple-400 h-4 mx-auto"></div>
-                      <span>平成<br/>(1989-2019)</span>
-                    </div>
-                    <div className="w-[4%] text-center text-purple-700">
-                      <div className="border-l-2 border-purple-400 h-4 mx-auto"></div>
-                      <span>令和<br/>(2019-)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* 各時代の説明 */}
             <div className="space-y-6">
               <h2 className="text-2xl font-bold mb-6 text-center">📖 各時代の特徴</h2>
@@ -1932,7 +1873,7 @@ const App = () => {
                   <span className="text-gray-500 text-sm">〜500年</span>
                 </div>
                 <p className="text-gray-700">古代ギリシャ・古代ローマの時代。西ローマ帝国の滅亡（476年）をもって終了とされます。哲学、民主制、法律など、現代にも続く多くの概念がこの時代に生まれました。</p>
-                <p className="text-amber-700 text-sm mt-2">🎬 代表作品：グラディエーター、ベン・ハー、300〈スリーハンドレッド〉</p>
+                <p className="text-amber-700 text-sm mt-2">🎬 代表作品：アサシン クリード オリジンズ、ベン・ハー、グラディエーター</p>
               </div>
 
               <div className="bg-emerald-50 rounded-lg p-6 border border-emerald-200">
@@ -1941,7 +1882,7 @@ const App = () => {
                   <span className="text-gray-500 text-sm">501-1500年</span>
                 </div>
                 <p className="text-gray-700">封建制を基盤とした時代。西ローマ帝国滅亡後から大航海時代の始まりまで、約1000年間続きました。騎士、城、キリスト教会が社会の中心でした。</p>
-                <p className="text-emerald-700 text-sm mt-2">🎬 代表作品：ブレイブハート、キングダム・オブ・ヘブン、ジャンヌ・ダルク</p>
+                <p className="text-emerald-700 text-sm mt-2">🎬 代表作品：ブレイブハート、キングダム・オブ・ヘブン、チ。-地球の運動について</p>
               </div>
 
               <div className="bg-cyan-50 rounded-lg p-6 border border-cyan-200">
@@ -1950,7 +1891,7 @@ const App = () => {
                   <span className="text-gray-500 text-sm">1501-1800年</span>
                 </div>
                 <p className="text-gray-700">中世から近代への移行期。大航海時代の幕開け（1492年）からフランス革命前まで。ルネサンス、宗教改革、絶対王政の時代です。</p>
-                <p className="text-cyan-700 text-sm mt-2">🎬 代表作品：エリザベス、アマデウス、パイレーツ・オブ・カリビアン</p>
+                <p className="text-cyan-700 text-sm mt-2">🎬 代表作品：ベルサイユのばら、アマデウス、パイレーツ・オブ・カリビアン</p>
               </div>
 
               <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
@@ -1959,7 +1900,7 @@ const App = () => {
                   <span className="text-gray-500 text-sm">1801-1945年</span>
                 </div>
                 <p className="text-gray-700">産業革命・フランス革命から第二次世界大戦終結まで。資本主義が発達し、国民国家が確立された激動の時代。二度の世界大戦を経験しました。</p>
-                <p className="text-blue-700 text-sm mt-2">🎬 代表作品：レ・ミゼラブル、1917、シンドラーのリスト</p>
+                <p className="text-blue-700 text-sm mt-2">🎬 代表作品：レ・ミゼラブル、黒執事、タイタニック、シンドラーのリスト</p>
               </div>
 
               <div className="bg-purple-50 rounded-lg p-6 border border-purple-200">
@@ -1968,7 +1909,7 @@ const App = () => {
                   <span className="text-gray-500 text-sm">1945年〜</span>
                 </div>
                 <p className="text-gray-700">第二次世界大戦後から現在まで。冷戦、グローバル化、デジタル革命を経て、私たちが生きる「今」へと続きます。</p>
-                <p className="text-purple-700 text-sm mt-2">🎬 代表作品：グッドナイト&グッドラック、ペンタゴン・ペーパーズ、ゼロ・ダーク・サーティ</p>
+                <p className="text-purple-700 text-sm mt-2">🎬 代表作品：フォレスト・ガンプ、コードネーム U.N.C.L.E.、ペンタゴン・ペーパーズ、ゼロ・ダーク・サーティ</p>
               </div>
             </div>
 
@@ -2247,6 +2188,7 @@ const App = () => {
                     <div className="flex flex-wrap gap-4">
                       {[
                         { id: 'movie', label: '🎬 映画', color: 'blue' },
+                        { id: 'drama', label: '📺 ドラマ', color: 'blue' },
                         { id: 'manga', label: '📚 漫画', color: 'green' },
                         { id: 'anime', label: '📺 アニメ', color: 'green' },
                         { id: 'game', label: '🎮 ゲーム', color: 'yellow' }
