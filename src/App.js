@@ -1244,9 +1244,13 @@ const App = () => {
                     return (a.id || '').localeCompare(b.id || '');
                   });
                   group.childContents.sort((a, b) => {
-                    const yearDiff = parseYear(a.year) - parseYear(b.year);
+                    // 年号がない場合は最後に配置（Infinityを使用）
+                    const yearA = a.year ? parseYear(a.year) : Infinity;
+                    const yearB = b.year ? parseYear(b.year) : Infinity;
+                    const yearDiff = yearA - yearB;
                     if (yearDiff !== 0) return yearDiff;
-                    return (a.item?.id || '').localeCompare(b.item?.id || '');
+                    // 同じ年の場合はタイトルでソート
+                    return (a.content?.title || '').localeCompare(b.content?.title || '');
                   });
                 });
                 
@@ -1507,9 +1511,9 @@ const App = () => {
                             const s = style(pc.content.type);
                             const icons = getTypeIcons(pc.content.type);
                             const displayPeriod = pc.content.periodRange || '';
-                            // 前のchildContentと同じ年号なら年号ラベルを表示しない
+                            // 年号がある場合のみ、前のchildContentと異なれば年号ラベルを表示
                             const prevPc = pcIdx > 0 ? ti.childContents[pcIdx - 1] : null;
-                            const showYearLabel = !prevPc || prevPc.year !== pc.year;
+                            const showYearLabel = pc.year && (!prevPc || prevPc.year !== pc.year);
                             return (
                               <div key={`pc-${pcIdx}`} className="ml-20 mb-4">
                                 {showYearLabel && <div className="text-lg font-bold text-purple-600 mb-2">{pc.year}</div>}
@@ -1880,21 +1884,43 @@ const App = () => {
                   {(adminMode || affiliateEnabled) && sel.links?.length > 0 && (() => {
                     const validLinks = sel.links.filter(l => l.url);
                     if (validLinks.length === 0) return null;
+                    // カテゴリのorder順でソート（電子書籍→配信→購入→ゲーム→その他）
+                    const sortedLinks = [...validLinks].sort((a, b) => {
+                      const orderA = linkServices[a.category]?.order || 99;
+                      const orderB = linkServices[b.category]?.order || 99;
+                      return orderA - orderB;
+                    });
+                    // カテゴリごとにグループ化
+                    const groupedLinks = {};
+                    sortedLinks.forEach(l => {
+                      const cat = l.category || 'other';
+                      if (!groupedLinks[cat]) groupedLinks[cat] = [];
+                      groupedLinks[cat].push(l);
+                    });
                     return (
-                      <div className={`mt-6 ${validLinks.length <= 3 ? 'flex gap-2' : 'grid grid-cols-2 gap-2'}`}>
-                        {validLinks.map((l, i) => {
-                          const serviceInfo = getServiceInfo(l.service);
-                          const categoryInfo = linkServices[l.category];
-                          const displayName = l.customName || (serviceInfo ? serviceInfo.name : l.service) || 'リンク';
-                          const colorClass = serviceInfo ? serviceInfo.color : 'from-purple-600 to-pink-600';
-                          const platformText = l.platform ? `（${gamePlatforms.find(p => p.id === l.platform)?.name || l.platform}）` : '';
-                          const buttonText = categoryInfo?.buttonText || 'で見る';
-                          const icon = serviceInfo?.icon || '🔗';
+                      <div className="mt-6 space-y-4">
+                        {Object.entries(groupedLinks).map(([category, links]) => {
+                          const categoryInfo = linkServices[category];
                           return (
-                            <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className={`flex-1 flex items-center justify-center gap-1 py-3 px-2 bg-gradient-to-r ${colorClass} text-white rounded-lg text-center font-bold hover:opacity-90 transition-opacity text-sm`}>
-                              <span>{icon}</span>
-                              <span className="truncate">{displayName}{platformText}{buttonText}</span>
-                            </a>
+                            <div key={category} className="bg-gray-50 rounded-lg p-3">
+                              <div className="text-xs font-semibold text-gray-500 mb-2">{categoryInfo?.label || '🔗 その他'}</div>
+                              <div className={links.length <= 3 ? 'flex gap-2' : 'grid grid-cols-2 gap-2'}>
+                                {links.map((l, i) => {
+                                  const serviceInfo = getServiceInfo(l.service);
+                                  const displayName = l.customName || (serviceInfo ? serviceInfo.name : l.service) || 'リンク';
+                                  const colorClass = serviceInfo ? serviceInfo.color : 'from-purple-600 to-pink-600';
+                                  const platformText = l.platform ? `（${gamePlatforms.find(p => p.id === l.platform)?.name || l.platform}）` : '';
+                                  const buttonText = categoryInfo?.buttonText || 'で見る';
+                                  const icon = serviceInfo?.icon || '🔗';
+                                  return (
+                                    <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className={`flex-1 flex items-center justify-center gap-1 py-3 px-2 bg-gradient-to-r ${colorClass} text-white rounded-lg text-center font-bold hover:opacity-90 transition-opacity text-sm`}>
+                                      <span>{icon}</span>
+                                      <span className="truncate">{displayName}{platformText}{buttonText}</span>
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
@@ -2061,8 +2087,18 @@ const App = () => {
                   </div>
                   <input value={cf.title} onChange={e => setCf(p => ({ ...p, title: e.target.value }))} placeholder="タイトル ※必須" className="w-full px-4 py-3 bg-white border rounded-lg" required />
                   <div className="space-y-2">
-                    <input value={cf.year} onChange={e => setCf(p => ({ ...p, year: e.target.value, mainEra: detectMainEra(e.target.value) }))} placeholder="主な時代（例: 1907）※必須・ソート基準" className="w-full px-4 py-3 bg-white border rounded-lg border-purple-300" required />
-                    <p className="text-xs text-purple-600">↑ 紫色で表示され、年表の並び順に使用されます（大区分は自動判定）</p>
+                    <input 
+                      value={cf.year} 
+                      onChange={e => setCf(p => ({ ...p, year: e.target.value, mainEra: detectMainEra(e.target.value) }))} 
+                      placeholder={cf.parentSubEra ? "主な時代（例: 1907）※任意（親グループ内に表示）" : "主な時代（例: 1907）※必須・ソート基準"} 
+                      className={`w-full px-4 py-3 bg-white border rounded-lg ${cf.parentSubEra ? 'border-gray-300' : 'border-purple-300'}`} 
+                      required={!cf.parentSubEra} 
+                    />
+                    <p className={`text-xs ${cf.parentSubEra ? 'text-gray-500' : 'text-purple-600'}`}>
+                      {cf.parentSubEra 
+                        ? '↑ 親グループ内に表示されます。年号を入力すると紫色のラベルが付きます' 
+                        : '↑ 紫色で表示され、年表の並び順に使用されます（大区分は自動判定）'}
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <input value={cf.periodRange} onChange={e => setCf(p => ({ ...p, periodRange: e.target.value }))} placeholder="大体の時期（例: 1904-1907）※任意" className="w-full px-4 py-3 bg-white border rounded-lg" />
