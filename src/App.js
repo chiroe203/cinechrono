@@ -1718,12 +1718,12 @@ const App = () => {
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-8 mb-12 border border-purple-200">
               <h2 className="text-2xl font-bold mb-4 text-purple-800">📚 このサイトを作った理由</h2>
               <div className="space-y-3 text-gray-700">
-                <p>「カエサルって、いつの時代の人だっけ？」</p>
-                <p>「産業革命とフランス革命、どっちが先？」</p>
+                <p>「この王様って、いつの時代の人だっけ？」</p>
+                <p>「産業革命とフランス革命、どっちが先？日本だと何時代？」</p>
                 <p>中学・高校・大学で歴史を勉強していた頃、年号と出来事の暗記に苦労しました。教科書を読んでも、その時代がどんな世界だったのか、なかなかイメージが湧かない。</p>
-                <p>でも、映画を観ると違いました。『グラディエーター』を観ればローマ帝国の壮大さが伝わり、『レ・ミゼラブル』を観ればフランス革命後の混乱が肌で感じられる。</p>
+                <p>でも、映画を観れば、『グラディエーター』からローマ帝国の壮大さが伝わり、『レ・ミゼラブル』からフランス革命後の混乱が肌で感じられる。</p>
                 <p className="font-semibold text-purple-700">「あの頃の自分に、こんなサイトがあったら良かったのに」</p>
-                <p>そんな想いから、CINEchrono TRAVELは生まれました。</p>
+                <p>そんな想いから、CINEchrono TRAVELを制作しました！</p>
               </div>
             </div>
 
