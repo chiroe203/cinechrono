@@ -167,30 +167,67 @@ const App = () => {
   // 年代文字列を数値に変換（ソート用）
   const parseYear = (yearStr) => {
     if (!yearStr) return 0;
-    const str = String(yearStr);
+    const str = String(yearStr).trim();
+    
+    // 空文字列の場合
+    if (str === '') return 0;
+    
     // 紀元前またはBC形式に対応
     if (str.includes('紀元前') || str.toUpperCase().includes('BC')) {
-      // ハイフン区切りの場合は最初の数値を使用
-      const firstPart = str.split(/[-〜~]/)[0];
-      const num = parseInt(firstPart.replace(/[^0-9]/g, '')) || 0;
-      return -num;
-    }
-    if (str.includes('世紀')) {
       const match = str.match(/(\d+)/);
       if (match) {
+        return -parseInt(match[1]);
+      }
+      return 0;
+    }
+    
+    // 「XX世紀」形式（15世紀、15世紀前期、15世紀頃など）
+    if (str.includes('世紀')) {
+      const match = str.match(/(\d+)\s*世紀/);
+      if (match) {
         const century = parseInt(match[1]);
-        return century * 100;
+        let baseYear = (century - 1) * 100 + 1; // 15世紀 → 1401
+        // 前期・前半 → +15, 中期・中頃 → +50, 後期・後半 → +85
+        if (str.includes('前期') || str.includes('前半')) baseYear += 15;
+        else if (str.includes('中期') || str.includes('中頃')) baseYear += 50;
+        else if (str.includes('後期') || str.includes('後半')) baseYear += 85;
+        return baseYear;
       }
     }
-    // ハイフン区切りの場合は最初の数値を使用（1701-1722頃 → 1701）
-    const firstPart = str.split(/[-〜~]/)[0];
-    const num = parseInt(firstPart.replace(/[^0-9]/g, '')) || 0;
-    return num;
+    
+    // 「XXXX年代」形式（1960年代、1430年代など）
+    if (str.includes('年代')) {
+      const match = str.match(/(\d+)\s*年代/);
+      if (match) {
+        let baseYear = parseInt(match[1]);
+        // 前期・前半 → +2, 中期・中頃 → +5, 後期・後半 → +8
+        if (str.includes('前期') || str.includes('前半')) baseYear += 2;
+        else if (str.includes('中期') || str.includes('中頃')) baseYear += 5;
+        else if (str.includes('後期') || str.includes('後半')) baseYear += 8;
+        return baseYear;
+      }
+    }
+    
+    // ハイフン・チルダ区切りの場合は最初の年を使用（1966-1974 → 1966）
+    const parts = str.split(/[-〜~～]/);
+    const firstPart = parts[0];
+    
+    // 最初の4桁以下の連続数字を抽出（1917年 → 1917）
+    const numMatch = firstPart.match(/(\d{1,4})/);
+    if (numMatch) {
+      return parseInt(numMatch[1]);
+    }
+    
+    return 0;
   };
 
   // 年から世紀を計算
   const getCentury = (year) => {
-    if (year === 0) return null;
+    // 無効な値の場合はnullを返す
+    if (year === 0 || year === null || year === undefined || isNaN(year)) return null;
+    // 異常に大きい値（5000以上）は無視
+    if (Math.abs(year) > 5000) return null;
+    
     if (year > 0) {
       const century = Math.ceil(year / 100);
       return { century, label: `${century}世紀`, isBC: false };
@@ -1147,20 +1184,40 @@ const App = () => {
                 // 大区分をまたいで世紀を追跡
                 let globalLastCentury = null;
                 
-                return eras.map(era => {
-                // この時代のデータ
-                const eraData = sortedData.filter(i => i.mainEra === era.id);
-                
                 // 歴史フィルター関数
                 const passesFilter = (item) => {
                   if (historyFilter === 'all') return true;
                   return hasHistoryCategory(item, historyFilter);
                 };
                 
+                // 全データから時代区分グループを構築（大区分をまたいで参照可能に）
+                const allSubEraGroups = {};
+                sortedData.forEach(item => {
+                  if (item.subEra && !allSubEraGroups[item.subEra] && passesFilter(item)) {
+                    allSubEraGroups[item.subEra] = {
+                      subEra: item.subEra,
+                      subEraYears: item.subEraYears,
+                      subEraDesc: item.subEraDesc,
+                      subEraDetail: item.subEraDetail,
+                      subEraType: item.subEraType,
+                      historyCategories: getHistoryCategories(item),
+                      parentSubEra: item.parentSubEra || '',
+                      mainEra: item.mainEra,
+                      startYear: parseYear(item.subEraYears?.split('-')[0] || item.year),
+                      items: [],
+                      childGroups: [],
+                      childContents: []
+                    };
+                  }
+                });
+                
+                return eras.map(era => {
+                // この時代のデータ
+                const eraData = sortedData.filter(i => i.mainEra === era.id);
+                
                 // 時代区分ごとにグループ化（親子関係を考慮）
                 const subEraGroups = {};
                 const childSubEras = {}; // 親を持つ時代区分
-                const childContents = {}; // 親時代区分を持つコンテンツ
                 const noSubEraItems = [];
                 
                 // まず全ての時代区分を収集（フィルター適用）
@@ -1203,8 +1260,17 @@ const App = () => {
                     
                     filteredContent.forEach((c, idx) => {
                       const originalIdx = (item.content || []).findIndex(oc => oc === c);
+                      // parentSubEraの親グループがこのera内にあるかチェック
                       if (c.parentSubEra && subEraGroups[c.parentSubEra]) {
                         parentedContents.push({ content: c, idx: originalIdx, item, year: item.year });
+                      } else if (c.parentSubEra && allSubEraGroups[c.parentSubEra]) {
+                        // 親が別のeraにある場合はスキップ（そちらで処理される）
+                        // ただし、このeraで親を持たない場合はここに追加
+                        if (allSubEraGroups[c.parentSubEra].mainEra !== era.id) {
+                          // 別のeraの親に属するのでスキップ
+                        } else {
+                          normalContents.push({ ...c, _originalIdx: originalIdx });
+                        }
                       } else {
                         normalContents.push({ ...c, _originalIdx: originalIdx });
                       }
@@ -1227,8 +1293,16 @@ const App = () => {
                     
                     filteredContent.forEach((c, idx) => {
                       const originalIdx = (item.content || []).findIndex(oc => oc === c);
+                      // parentSubEraの親グループがこのera内にあるかチェック
                       if (c.parentSubEra && subEraGroups[c.parentSubEra]) {
                         parentedContents.push({ content: c, idx: originalIdx, item, year: item.year });
+                      } else if (c.parentSubEra && allSubEraGroups[c.parentSubEra]) {
+                        // 親が別のeraにある場合はスキップ
+                        if (allSubEraGroups[c.parentSubEra].mainEra !== era.id) {
+                          // 別のeraの親に属するのでスキップ
+                        } else {
+                          normalContents.push({ ...c, _originalIdx: originalIdx });
+                        }
                       } else {
                         normalContents.push({ ...c, _originalIdx: originalIdx });
                       }
@@ -1243,6 +1317,26 @@ const App = () => {
                       noSubEraItems.push(modifiedItem);
                     }
                   }
+                });
+                
+                // 別の大区分に保存されているが、このeraの時代区分を親に持つコンテンツを追加
+                sortedData.forEach(item => {
+                  if (item.mainEra === era.id) return; // このeraのデータは既に処理済み
+                  
+                  const filteredContent = (item.content || []).filter(c => passesFilter(c));
+                  
+                  filteredContent.forEach((c, idx) => {
+                    // このeraの時代区分を親に持つコンテンツを探す
+                    if (c.parentSubEra && subEraGroups[c.parentSubEra]) {
+                      const originalIdx = (item.content || []).findIndex(oc => oc === c);
+                      subEraGroups[c.parentSubEra].childContents.push({
+                        content: c,
+                        idx: originalIdx,
+                        item,
+                        year: item.year
+                      });
+                    }
+                  });
                 });
                 
                 // 時代区分グループ内のアイテムを年順にソート（安定化）
@@ -1290,12 +1384,11 @@ const App = () => {
                 
                 // 時代区分なしのアイテムを追加
                 noSubEraItems.forEach(item => {
-                  const firstContent = item.content?.[0];
-                  const sortYear = parseYear(firstContent?.periodRange?.split('-')[0] || item.year);
+                  // ソートにはitem.yearのみを使用（periodRangeは表示用）
                   timelineItems.push({
                     type: 'item',
                     item: item,
-                    year: sortYear
+                    year: parseYear(item.year)
                   });
                 });
                 
@@ -1304,7 +1397,10 @@ const App = () => {
                   const yearA = a.type === 'subEraGroup' ? a.startYear : a.year;
                   const yearB = b.type === 'subEraGroup' ? b.startYear : b.year;
                   if (yearA !== yearB) return yearA - yearB;
-                  // 同じ年の場合は識別子でソート
+                  // 同じ年の場合：時代区分グループを先に、次に単独アイテム
+                  if (a.type === 'subEraGroup' && b.type !== 'subEraGroup') return -1;
+                  if (a.type !== 'subEraGroup' && b.type === 'subEraGroup') return 1;
+                  // 同じタイプの場合は識別子でソート
                   const idA = a.type === 'subEraGroup' ? a.subEra : (a.item?.id || '');
                   const idB = b.type === 'subEraGroup' ? b.subEra : (b.item?.id || '');
                   return idA.localeCompare(idB);
@@ -1440,6 +1536,38 @@ const App = () => {
                             </div>
                             );
                           })}
+                          {/* 親時代区分を持つコンテンツ（子時代区分より前に表示） */}
+                          {ti.childContents?.map((pc, pcIdx) => {
+                            const s = style(pc.content.type);
+                            const icons = getTypeIcons(pc.content.type);
+                            const displayPeriod = pc.content.periodRange || '';
+                            // 年号がある場合のみ、前のchildContentと異なれば年号ラベルを表示
+                            const prevPc = pcIdx > 0 ? ti.childContents[pcIdx - 1] : null;
+                            const showYearLabel = pc.year && (!prevPc || prevPc.year !== pc.year);
+                            return (
+                              <div key={`pc-${pcIdx}`} className="ml-20 mb-4">
+                                {showYearLabel && <div className="text-lg font-bold text-purple-600 mb-2">{pc.year}</div>}
+                                <div onClick={() => { setVideoIndex(0); setSel({ ...pc.content, year: pc.year, itemId: pc.item.id, idx: pc.idx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      {icons.map((ic, idx) => {
+                                        const IconComp = ic.icon;
+                                        return <IconComp key={idx} className={`w-4 h-4 ${ic.color}`} />;
+                                      })}
+                                      <span className={`font-bold ${s.txt}`}>{pc.content.title}</span>
+                                    </div>
+                                    <div className="text-sm text-gray-600 mt-1">{label(pc.content.type)}</div>
+                                    <div className="text-sm text-gray-500 min-h-[1.25rem]">{displayPeriod}</div>
+                                  </div>
+                                  {pc.content.thumbnail ? (
+                                    <img src={pc.content.thumbnail} alt="" className="w-16 h-16 object-cover rounded flex-shrink-0" onError={(e) => e.target.style.display='none'} />
+                                  ) : (
+                                    <div className="w-16 h-16 flex-shrink-0"></div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                           {/* 子時代区分グループ（終点となる条約など） */}
                           {ti.childGroups?.map((child, childIdx) => {
                             const childSeIcon = subEraIcon(child.subEraType);
@@ -1512,38 +1640,6 @@ const App = () => {
                                   </div>
                                   );
                                 })}
-                              </div>
-                            );
-                          })}
-                          {/* 親時代区分を持つコンテンツ */}
-                          {ti.childContents?.map((pc, pcIdx) => {
-                            const s = style(pc.content.type);
-                            const icons = getTypeIcons(pc.content.type);
-                            const displayPeriod = pc.content.periodRange || '';
-                            // 年号がある場合のみ、前のchildContentと異なれば年号ラベルを表示
-                            const prevPc = pcIdx > 0 ? ti.childContents[pcIdx - 1] : null;
-                            const showYearLabel = pc.year && (!prevPc || prevPc.year !== pc.year);
-                            return (
-                              <div key={`pc-${pcIdx}`} className="ml-20 mb-4">
-                                {showYearLabel && <div className="text-lg font-bold text-purple-600 mb-2">{pc.year}</div>}
-                                <div onClick={() => { setVideoIndex(0); setSel({ ...pc.content, year: pc.year, itemId: pc.item.id, idx: pc.idx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      {icons.map((ic, idx) => {
-                                        const IconComp = ic.icon;
-                                        return <IconComp key={idx} className={`w-4 h-4 ${ic.color}`} />;
-                                      })}
-                                      <span className={`font-bold ${s.txt}`}>{pc.content.title}</span>
-                                    </div>
-                                    <div className="text-sm text-gray-600 mt-1">{label(pc.content.type)}</div>
-                                    <div className="text-sm text-gray-500 min-h-[1.25rem]">{displayPeriod}</div>
-                                  </div>
-                                  {pc.content.thumbnail ? (
-                                    <img src={pc.content.thumbnail} alt="" className="w-16 h-16 object-cover rounded flex-shrink-0" onError={(e) => e.target.style.display='none'} />
-                                  ) : (
-                                    <div className="w-16 h-16 flex-shrink-0"></div>
-                                  )}
-                                </div>
                               </div>
                             );
                           })}
