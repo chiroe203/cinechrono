@@ -514,6 +514,15 @@ const App = () => {
     }
     setSaving(true);
     
+    // 親が設定されている場合、親のmainEraを使用
+    let targetMainEra = cf.mainEra;
+    if (cf.parentSubEra) {
+      const parentItem = data.find(x => x.subEra === cf.parentSubEra);
+      if (parentItem) {
+        targetMainEra = parentItem.mainEra;
+      }
+    }
+    
     const nc = { 
       type: cf.categories.length === 1 ? cf.categories[0] : cf.categories, 
       historyCategories: cf.historyCategories || ['world'],
@@ -538,13 +547,13 @@ const App = () => {
           // サンプルデータの場合は新規作成
           if (editTarget.itemId.startsWith('sample')) {
             // 時代区分から取得
-            const subEraData = data.find(x => x.mainEra === cf.mainEra && x.subEra === cf.subEra);
+            const subEraData = data.find(x => x.mainEra === targetMainEra && x.subEra === cf.subEra);
             const newData = { 
-              mainEra: cf.mainEra, 
+              mainEra: targetMainEra, 
               subEra: cf.subEra || '', 
               subEraType: subEraData?.subEraType || item.subEraType || 'normal',
               subEraYears: cf.subEraYears || subEraData?.subEraYears || '', 
-              year: cf.year, 
+              year: cf.year || '', 
               events: item.events || [], 
               content: updatedContent 
             };
@@ -555,10 +564,10 @@ const App = () => {
             try {
               const docRef = doc(db, 'timeline', editTarget.itemId);
               const updateData = {
-                mainEra: cf.mainEra,
+                mainEra: targetMainEra,
                 subEra: cf.subEra || '',
                 subEraYears: cf.subEraYears || '',
-                year: cf.year,
+                year: cf.year || '',
                 content: updatedContent
               };
               await updateDoc(docRef, updateData);
@@ -566,13 +575,13 @@ const App = () => {
             } catch (updateError) {
               // ドキュメントが存在しない場合は新規作成
               if (updateError.code === 'not-found' || updateError.message.includes('No document to update')) {
-                const subEraData = data.find(x => x.mainEra === cf.mainEra && x.subEra === cf.subEra);
+                const subEraData = data.find(x => x.mainEra === targetMainEra && x.subEra === cf.subEra);
                 const newData = { 
-                  mainEra: cf.mainEra, 
+                  mainEra: targetMainEra, 
                   subEra: cf.subEra || '', 
                   subEraType: subEraData?.subEraType || 'normal',
                   subEraYears: cf.subEraYears || subEraData?.subEraYears || '', 
-                  year: cf.year, 
+                  year: cf.year || '', 
                   events: item.events || [], 
                   content: updatedContent 
                 };
@@ -587,7 +596,7 @@ const App = () => {
         }
       } else {
         // 新規追加モード
-        const existingItem = data.find(x => x.mainEra === cf.mainEra && x.subEra === cf.subEra && x.year === cf.year && !x.id?.startsWith('sample'));
+        const existingItem = data.find(x => x.mainEra === targetMainEra && x.subEra === cf.subEra && x.year === cf.year && !x.id?.startsWith('sample'));
         
         if (existingItem) {
           // 既存のFirebaseドキュメントにコンテンツを追加
@@ -597,13 +606,13 @@ const App = () => {
           setData(p => p.map(item => item.id === existingItem.id ? { ...item, content: updatedContent } : item));
         } else {
           // 新しいドキュメントを追加（時代区分から取得）
-          const subEraData = data.find(x => x.mainEra === cf.mainEra && x.subEra === cf.subEra);
+          const subEraData = data.find(x => x.mainEra === targetMainEra && x.subEra === cf.subEra);
           const newData = { 
-            mainEra: cf.mainEra, 
+            mainEra: targetMainEra, 
             subEra: cf.subEra || '', 
             subEraType: subEraData?.subEraType || 'normal',
             subEraYears: cf.subEraYears || subEraData?.subEraYears || '', 
-            year: cf.year, 
+            year: cf.year || '', 
             events: [], 
             content: [nc] 
           };
@@ -1320,14 +1329,14 @@ const App = () => {
                   </div>
                   {timelineItems.map((ti, tiIdx) => {
                     // 紀元の区切り線を表示するかチェック
-                    const currentYear = ti.type === 'subEraGroup' ? ti.startYear : ti.year;
+                    const currentYear = ti.type === 'subEraGroup' ? ti.startYear : parseYear(ti.year || ti.item?.year);
                     const prevItem = tiIdx > 0 ? timelineItems[tiIdx - 1] : null;
-                    const prevYear = prevItem ? (prevItem.type === 'subEraGroup' ? prevItem.startYear : prevItem.year) : null;
+                    const prevYear = prevItem ? (prevItem.type === 'subEraGroup' ? prevItem.startYear : parseYear(prevItem.year || prevItem.item?.year)) : null;
                     const showEraDivider = showEraLine && prevYear !== null && prevYear < 0 && currentYear > 0;
                     
                     // 世紀マーカーを表示するかチェック（大区分をまたいでも追跡）
-                    const currentCentury = getCentury(currentYear);
-                    const prevCentury = prevYear !== null ? getCentury(prevYear) : globalLastCentury;
+                    const currentCentury = currentYear ? getCentury(currentYear) : null;
+                    const prevCentury = prevYear ? getCentury(prevYear) : globalLastCentury;
                     const showCenturyMarker = currentCentury && (
                       !prevCentury || 
                       currentCentury.century !== prevCentury.century || 
