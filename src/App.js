@@ -1,16 +1,22 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Film, X, Gamepad2, BookMarked, Settings, Clock, Menu, ExternalLink, LogOut, Loader2, Pencil, Swords, ScrollText, MapPin, ChevronLeft, ChevronRight, Tv, Skull, AlertCircle, ToggleLeft, ToggleRight, Filter } from 'lucide-react';
 import { db, auth, fetchTimelineData, addTimelineItem, deleteTimelineItem, loginAdmin, logoutAdmin } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 
 const App = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // URLからページを判定
+  const page = location.pathname === '/about' ? 'about' : 'timeline';
+  
   const [sel, setSel] = useState(null);
   const [activeEra, setActiveEra] = useState(null);
 
   const [admin, setAdmin] = useState(false);
   const [tab, setTab] = useState('content');
-  const [page, setPage] = useState('timeline');
   const [menu, setMenu] = useState(false);
   const [adminMode, setAdminMode] = useState(false);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
@@ -1172,7 +1178,7 @@ const App = () => {
     <div className="min-h-screen bg-white text-gray-900">
       <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur z-50 shadow-md border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent cursor-pointer" onClick={() => setPage('timeline')}>CINEchrono TRAVEL</h1>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent cursor-pointer" onClick={() => navigate('/')}>CINEchrono TRAVEL</h1>
           {/* 歴史フィルター */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
@@ -1257,7 +1263,7 @@ const App = () => {
           </div>
           <button onClick={() => setMenu(!menu)} className="p-2 hover:bg-gray-100 rounded-lg"><Menu className="w-6 h-6" /></button>
         </div>
-        {menu && <div className="bg-white border-t">{[['timeline', '年表と物語'], ['about', 'CINEchrono TRAVELとは'], ['articles', '記事一覧']].map(([p, n]) => <button key={p} onClick={() => { setPage(p); setMenu(false); }} className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${page === p ? 'bg-purple-50 text-purple-700 font-semibold' : ''}`}>{n}</button>)}</div>}
+        {menu && <div className="bg-white border-t">{[['/', '年表と物語'], ['/about', 'CINEchrono TRAVELとは']].map(([path, name]) => <button key={path} onClick={() => { navigate(path); setMenu(false); }} className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${location.pathname === path || (path === '/' && location.pathname === '') ? 'bg-purple-50 text-purple-700 font-semibold' : ''}`}>{name}</button>)}</div>}
       </header>
 
       {adminMode && (
@@ -1960,18 +1966,9 @@ const App = () => {
             {/* 締めのメッセージ */}
             <div className="mt-12 text-center">
               <p className="text-gray-600 mb-4">さあ、年表を開いて、時代の旅に出かけましょう。</p>
-              <button onClick={() => setPage('timeline')} className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold hover:from-purple-700 hover:to-pink-700 shadow-lg transition-all">
+              <button onClick={() => navigate('/')} className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold hover:from-purple-700 hover:to-pink-700 shadow-lg transition-all">
                 🎬 年表を見る
               </button>
-            </div>
-          </div>
-        )}
-
-        {page === 'articles' && (
-          <div className="max-w-4xl mx-auto px-4 py-16">
-            <h1 className="text-4xl font-bold text-center mb-12 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">記事一覧</h1>
-            <div className="bg-gray-50 rounded-lg p-6 border">
-              <iframe src="https://note.com/cinechrono/embed" className="w-full h-screen border-0 rounded-lg" title="Note記事"></iframe>
             </div>
           </div>
         )}
