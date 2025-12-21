@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Film, X, Gamepad2, BookMarked, Settings, Clock, Menu, ExternalLink, LogOut, Loader2, Pencil, Swords, ScrollText, MapPin, ChevronLeft, ChevronRight, Tv, Skull, AlertCircle, ToggleLeft, ToggleRight, Filter } from 'lucide-react';
+import { Film, X, Gamepad2, BookMarked, Settings, Clock, Menu, ExternalLink, LogOut, Loader2, Pencil, Swords, ScrollText, MapPin, ChevronLeft, ChevronRight, Tv, Skull, AlertCircle, ToggleLeft, ToggleRight, Filter, Lightbulb } from 'lucide-react';
 import { db, auth, fetchTimelineData, addTimelineItem, deleteTimelineItem, loginAdmin, logoutAdmin } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
@@ -145,6 +145,7 @@ const App = () => {
   const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
   const [ef, setEf] = useState({ eventType: 'war', historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', year: '', desc: '', detail: '', topic: { title: '', url: '' } });
   const [sf, setSf] = useState({ mainEra: 'modern', subEra: '', subEraType: 'normal', subEraYears: '', parentSubEra: '', historyCategories: ['world'], desc: '', detail: '' });
+  const [tf, setTf] = useState({ title: '', year: '', mainEra: 'modern', historyCategories: ['world'], description: '', images: [''] }); // トリビア用フォーム
   const [contentSort, setContentSort] = useState('year'); // year, title, created
   const [eventSort, setEventSort] = useState('year');
   const [subEraSort, setSubEraSort] = useState('year');
@@ -155,7 +156,8 @@ const App = () => {
     drama: true,
     manga: true,
     anime: true,
-    game: true
+    game: true,
+    trivia: false
   });
   // フィルターUI内の一時的な選択状態
   const [tempCategoryFilter, setTempCategoryFilter] = useState({
@@ -163,13 +165,16 @@ const App = () => {
     drama: true,
     manga: true,
     anime: true,
-    game: true
+    game: true,
+    trivia: false
   });
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   // 管理画面用フィルター
   const [adminContentFilter, setAdminContentFilter] = useState('all');
   const [adminEventFilter, setAdminEventFilter] = useState('all');
   const [adminSubEraFilter, setAdminSubEraFilter] = useState('all');
+  const [adminTriviaFilter, setAdminTriviaFilter] = useState('all');
+  const [triviaSort, setTriviaSort] = useState('year');
 
   // historyCategory/historyCategoriesの正規化ヘルパー
   const getHistoryCategories = (item) => {
@@ -354,7 +359,8 @@ const App = () => {
     drama: { b: 'border-cyan-500', txt: 'text-cyan-700', ic: Tv, icc: 'text-cyan-600', bg: 'bg-cyan-50' }, 
     manga: { b: 'border-green-500', txt: 'text-green-700', ic: BookMarked, icc: 'text-green-600', bg: 'bg-green-50' }, 
     anime: { b: 'border-green-500', txt: 'text-green-700', ic: Tv, icc: 'text-green-600', bg: 'bg-green-50' },
-    game: { b: 'border-yellow-500', txt: 'text-yellow-700', ic: Gamepad2, icc: 'text-yellow-600', bg: 'bg-yellow-50' }
+    game: { b: 'border-yellow-500', txt: 'text-yellow-700', ic: Gamepad2, icc: 'text-yellow-600', bg: 'bg-yellow-50' },
+    trivia: { b: 'border-gray-400', txt: 'text-gray-700', ic: Lightbulb, icc: 'text-gray-500', bg: 'bg-gray-100' }
   };
   
   // typeが配列または文字列に対応
@@ -366,6 +372,8 @@ const App = () => {
   
   const style = (t) => {
     const types = getTypes(t);
+    // トリビアの場合は専用スタイル
+    if (types.includes('trivia')) return styleBase.trivia;
     // 優先順位: 映画(青) > ドラマ(ティール) > ゲーム(黄) > 漫画・アニメ(緑)
     const primary = types.includes('movie') ? 'movie' 
       : types.includes('drama') ? 'drama'
@@ -374,7 +382,7 @@ const App = () => {
     return styleBase[primary] || styleBase.movie;
   };
   
-  const labelBase = { movie: '🎬 映画', drama: '📺 ドラマ', manga: '📚 漫画', anime: '📺 アニメ', game: '🎮 ゲーム' };
+  const labelBase = { movie: '🎬 映画', drama: '📺 ドラマ', manga: '📚 漫画', anime: '📺 アニメ', game: '🎮 ゲーム', trivia: '💡 トリビア' };
   
   const label = (t) => {
     const types = getTypes(t);
@@ -391,6 +399,7 @@ const App = () => {
         case 'manga': return { icon: BookMarked, color: 'text-green-600' };
         case 'anime': return { icon: Tv, color: 'text-green-600' };
         case 'game': return { icon: Gamepad2, color: 'text-yellow-600' };
+        case 'trivia': return { icon: Lightbulb, color: 'text-gray-500' };
         default: return { icon: Film, color: 'text-blue-600' };
       }
     });
@@ -479,6 +488,12 @@ const App = () => {
 
   const resetSubEraForm = () => {
     setSf({ mainEra: 'modern', subEra: '', subEraType: 'normal', subEraYears: '', parentSubEra: '', historyCategories: ['world'], desc: '', detail: '' });
+    setEditMode(false);
+    setEditTarget(null);
+  };
+
+  const resetTriviaForm = () => {
+    setTf({ title: '', year: '', mainEra: 'modern', historyCategories: ['world'], description: '', images: [''] });
     setEditMode(false);
     setEditTarget(null);
   };
@@ -581,6 +596,44 @@ const App = () => {
         eventFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }, 100);
+  };
+
+  // 編集モード開始（トリビア）
+  const startEditTrivia = (itemId, idx) => {
+    if (!itemId || idx === undefined) {
+      console.error('startEditTrivia: itemId or idx is missing', { itemId, idx });
+      return;
+    }
+    const item = data.find(i => i.id === itemId);
+    if (!item) {
+      console.error('startEditTrivia: item not found', { itemId, data });
+      return;
+    }
+    if (!item.content || !item.content[idx]) {
+      console.error('startEditTrivia: content not found', { itemId, idx, content: item.content });
+      return;
+    }
+    const trivia = item.content[idx];
+    
+    // 旧形式(thumbnail)と新形式(images)の両方に対応
+    let imgs = [''];
+    if (trivia.images?.length > 0) {
+      imgs = trivia.images;
+    } else if (trivia.thumbnail) {
+      imgs = [trivia.thumbnail];
+    }
+    
+    setTf({
+      title: trivia.title,
+      year: item.year,
+      mainEra: item.mainEra,
+      historyCategories: getHistoryCategories(trivia),
+      description: trivia.description || '',
+      images: imgs
+    });
+    setEditMode(true);
+    setEditTarget({ itemId, type: 'trivia', idx });
+    setTab('trivia');
   };
 
   // コンテンツ追加・更新（Firebase連携）
@@ -701,6 +754,90 @@ const App = () => {
       }
       
       resetContentForm();
+    } catch (error) {
+      console.error('保存エラー:', error);
+      alert('❌ 保存に失敗しました: ' + error.message);
+    }
+    setSaving(false);
+  };
+
+  // トリビア追加・更新（Firebase連携）
+  const addT = async (e) => {
+    e.preventDefault();
+    if (!tf.title || !tf.year) {
+      alert('タイトルと年号は必須です');
+      return;
+    }
+    setSaving(true);
+    
+    const nt = { 
+      type: 'trivia',
+      historyCategories: tf.historyCategories || ['world'],
+      title: tf.title, 
+      description: tf.description || '',
+      images: tf.images.filter(url => url.trim() !== '')
+    };
+    
+    const targetMainEra = tf.mainEra || detectMainEra(tf.year);
+    
+    try {
+      if (editMode && editTarget && editTarget.type === 'trivia') {
+        // 編集モード
+        const item = data.find(i => i.id === editTarget.itemId);
+        if (item) {
+          const updatedContent = [...item.content];
+          updatedContent[editTarget.idx] = nt;
+          
+          if (editTarget.itemId.startsWith('sample')) {
+            const newData = { 
+              mainEra: targetMainEra, 
+              subEra: '', 
+              subEraType: 'normal',
+              subEraYears: '', 
+              year: tf.year, 
+              events: [], 
+              content: updatedContent 
+            };
+            const result = await addTimelineItem(newData);
+            setData(p => [...p.filter(i => i.id !== editTarget.itemId), result]);
+          } else {
+            const docRef = doc(db, 'timeline', editTarget.itemId);
+            const updateData = {
+              mainEra: targetMainEra,
+              year: tf.year,
+              content: updatedContent
+            };
+            await updateDoc(docRef, updateData);
+            setData(p => p.map(i => i.id === editTarget.itemId ? { ...i, ...updateData } : i));
+          }
+          alert('✅ 更新しました！');
+        }
+      } else {
+        // 新規追加モード
+        const existingItem = data.find(x => x.mainEra === targetMainEra && !x.subEra && x.year === tf.year && !x.id?.startsWith('sample'));
+        
+        if (existingItem) {
+          const updatedContent = [...(existingItem.content || []), nt];
+          const docRef = doc(db, 'timeline', existingItem.id);
+          await updateDoc(docRef, { content: updatedContent });
+          setData(p => p.map(item => item.id === existingItem.id ? { ...item, content: updatedContent } : item));
+        } else {
+          const newData = { 
+            mainEra: targetMainEra, 
+            subEra: '', 
+            subEraType: 'normal',
+            subEraYears: '', 
+            year: tf.year, 
+            events: [], 
+            content: [nt] 
+          };
+          const result = await addTimelineItem(newData);
+          setData(p => [...p.filter(item => !item.id?.startsWith('sample')), result]);
+        }
+        alert('✅ 追加しました！');
+      }
+      
+      resetTriviaForm();
     } catch (error) {
       console.error('保存エラー:', error);
       alert('❌ 保存に失敗しました: ' + error.message);
@@ -1039,6 +1176,15 @@ const App = () => {
       } else {
         alert('編集情報が見つかりません。一度閉じて再度お試しください。');
       }
+    } else if (sel.type === 'trivia') {
+      // トリビアの編集
+      if (sel.itemId && sel.idx !== undefined) {
+        startEditTrivia(sel.itemId, sel.idx);
+        setAdmin(true);
+        setSel(null);
+      } else {
+        alert('編集情報が見つかりません。一度閉じて再度お試しください。');
+      }
     } else {
       // コンテンツ（映画等）の編集
       if (sel.itemId && sel.idx !== undefined) {
@@ -1232,7 +1378,8 @@ const App = () => {
                         { id: 'drama', label: '📺 ドラマ', color: 'blue' },
                         { id: 'manga', label: '📚 漫画', color: 'green' },
                         { id: 'anime', label: '📺 アニメ', color: 'green' },
-                        { id: 'game', label: '🎮 ゲーム', color: 'yellow' }
+                        { id: 'game', label: '🎮 ゲーム', color: 'yellow' },
+                        { id: 'trivia', label: '💡 トリビア', color: 'gray' }
                       ].map(cat => (
                         <label key={cat.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded p-2 -mx-2">
                           <input
@@ -1618,14 +1765,36 @@ const App = () => {
                             // 前のアイテムと同じ年号なら年号ラベルを表示しない
                             const prevItem = itemIdx > 0 ? ti.items[itemIdx - 1] : null;
                             const showYearLabel = !prevItem || prevItem.year !== item.year;
+                            // トリビアのみの場合は専用表示
+                            const isOnlyTrivia = item.content?.every(c => c.type === 'trivia');
                             return (
                             <div key={item.id} className="ml-20 mb-4">
-                              {showYearLabel && <div className="text-lg font-bold text-purple-600 mb-2">{item.year}</div>}
+                              {showYearLabel && !isOnlyTrivia && <div className="text-lg font-bold mb-2 text-purple-600">{item.year}</div>}
                               {item.content?.map((c, i) => {
                                 const s = style(c.type);
                                 const icons = getTypeIcons(c.type);
                                 const displayPeriod = c.periodRange || '';
                                 const originalIdx = c._originalIdx !== undefined ? c._originalIdx : i;
+                                
+                                // トリビア専用表示（作品と同じ形式：💡タイトル + 年号を概要として）
+                                if (c.type === 'trivia') {
+                                  return (
+                                    <div key={originalIdx} className="relative mb-3">
+                                      <div className="absolute left-[-48px] top-1/2 -translate-y-1/2 w-12 border-t-2 border-dashed border-gray-400"></div>
+                                      <div 
+                                        onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: originalIdx }); }} 
+                                        className="cursor-pointer pl-4 py-3 pr-4 border-l-4 border-gray-400 bg-gray-100 rounded-r-lg hover:shadow-md transition-shadow"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <Lightbulb className="w-4 h-4 text-yellow-500" />
+                                          <span className="font-bold text-gray-700">{c.title}</span>
+                                        </div>
+                                        <div className="text-sm text-gray-500 mt-1">{item.year}</div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                
                                 return (
                                   <div key={originalIdx} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: originalIdx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
                                     <div className="flex-1 min-w-0">
@@ -1777,12 +1946,38 @@ const App = () => {
                           {/* 世紀マーカー */}
                           <CenturyMarker />
                           <div className="ml-20 mb-6">
-                          <div className="text-lg font-bold text-purple-600 mb-2">{item.year}</div>
+                          {(() => {
+                            const isOnlyTrivia = item.content?.every(c => c.type === 'trivia');
+                            if (!isOnlyTrivia) {
+                              return <div className="text-lg font-bold mb-2 text-purple-600">{item.year}</div>;
+                            }
+                            return null;
+                          })()}
                           {item.content?.map((c, i) => {
                             const s = style(c.type);
                             const icons = getTypeIcons(c.type);
                             const displayPeriod = c.periodRange || '';
                             const originalIdx = c._originalIdx !== undefined ? c._originalIdx : i;
+                            
+                            // トリビア専用表示（作品と同じ形式：💡タイトル + 年号を概要として）
+                            if (c.type === 'trivia') {
+                              return (
+                                <div key={originalIdx} className="relative mb-3">
+                                  <div className="absolute left-[-48px] top-1/2 -translate-y-1/2 w-12 border-t-2 border-dashed border-gray-400"></div>
+                                  <div 
+                                    onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: originalIdx }); }} 
+                                    className="cursor-pointer pl-4 py-3 pr-4 border-l-4 border-gray-400 bg-gray-100 rounded-r-lg hover:shadow-md transition-shadow"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Lightbulb className="w-4 h-4 text-yellow-500" />
+                                      <span className="font-bold text-gray-700">{c.title}</span>
+                                    </div>
+                                    <div className="text-sm text-gray-500 mt-1">{item.year}</div>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            
                             return (
                               <div key={originalIdx} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: originalIdx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
                                 <div className="flex-1 min-w-0">
@@ -2100,6 +2295,26 @@ const App = () => {
                     </div>
                   )}
                   {sel.synopsis && <div className="mb-4"><div className="text-sm text-gray-500 mb-2">あらすじ</div><p className="text-gray-700">{sel.synopsis}</p></div>}
+                  {sel.description && <div className="mb-4"><div className="text-sm text-gray-500 mb-2">説明</div><p className="text-gray-700">{sel.description}</p></div>}
+                  {/* トリビアの複数画像表示 */}
+                  {sel.images?.length > 0 && (
+                    <div className="mb-4">
+                      <div className="text-sm text-gray-500 mb-2">画像</div>
+                      <div className="space-y-3">
+                        {sel.images.map((img, idx) => (
+                          <div key={idx} className="flex justify-center">
+                            <img 
+                              src={img} 
+                              alt={`${sel.title} - ${idx + 1}`} 
+                              className="max-w-full max-h-80 object-contain rounded-lg shadow-md" 
+                              style={{ imageRendering: '-webkit-optimize-contrast' }}
+                              onError={(e) => e.target.style.display='none'} 
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {(adminMode || affiliateEnabled) && sel.links?.length > 0 && (() => {
                     const validLinks = sel.links.filter(l => l.url);
                     if (validLinks.length === 0) return null;
@@ -2216,7 +2431,7 @@ const App = () => {
               </div>
               
               <div className="flex gap-2 mb-6">
-                {[['content', '🎬 作品'], ['subEra', '🏛️ 時代区分・イベント']].map(([t, l]) => <button key={t} onClick={() => { setTab(t); if (t === 'content') { resetSubEraForm(); } else { resetContentForm(); } }} className={`flex-1 py-3 rounded-lg font-bold ${tab === t ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white' : 'bg-gray-100 text-gray-700'}`}>{l}</button>)}
+                {[['content', '🎬 作品'], ['subEra', '🏛️ 時代区分'], ['trivia', '💡 トリビア']].map(([t, l]) => <button key={t} onClick={() => { setTab(t); resetContentForm(); resetSubEraForm(); resetTriviaForm(); }} className={`flex-1 py-2 text-sm rounded-lg font-bold ${tab === t ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white' : 'bg-gray-100 text-gray-700'}`}>{l}</button>)}
               </div>
               {tab === 'content' && (
                 <form ref={contentFormRef} onSubmit={addC} className="bg-gray-50 rounded-lg p-6 border space-y-4">
@@ -2453,9 +2668,11 @@ const App = () => {
                     </div>
                     <div className="space-y-2 max-h-96 overflow-y-auto">
                       {(() => {
-                        // コンテンツを抽出
+                        // コンテンツを抽出（トリビアは除外）
                         const allContent = sortedData.flatMap(item => 
-                          item.content.map((c, idx) => ({ item, content: c, idx }))
+                          (item.content || [])
+                            .map((c, idx) => ({ item, content: c, idx }))
+                            .filter(({ content: c }) => c.type !== 'trivia')
                         );
                         // フィルター適用
                         const filtered = adminContentFilter === 'all' 
@@ -2663,6 +2880,181 @@ const App = () => {
                                   <Pencil className="w-5 h-5" />
                                 </button>
                                 <button type="button" onClick={() => deleteSubEra(mainEra, subEra)} disabled={saving} className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50" title="削除">
+                                  <X className="w-5 h-5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {tab === 'trivia' && (
+                <form onSubmit={addT} className="bg-gray-50 rounded-lg p-6 border space-y-4">
+                  {editMode && editTarget?.type === 'trivia' && (
+                    <div className="bg-gradient-to-r from-yellow-100 to-orange-100 border-2 border-yellow-400 rounded-lg p-4 mb-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Pencil className="w-5 h-5 text-yellow-700" />
+                        <p className="text-yellow-800 font-bold text-lg">編集モード</p>
+                      </div>
+                      <p className="text-yellow-700 text-sm mb-2">「{tf.title}」を編集中です。内容を変更して「更新」ボタンを押してください。</p>
+                      <button type="button" onClick={resetTriviaForm} className="text-sm text-yellow-700 hover:text-yellow-900 underline font-semibold">✕ キャンセルして新規追加に戻る</button>
+                    </div>
+                  )}
+                  <input 
+                    value={tf.title} 
+                    onChange={e => setTf(p => ({ ...p, title: e.target.value }))} 
+                    placeholder="タイトル（例: ドラえもん誕生）※必須" 
+                    className="w-full px-4 py-3 bg-white border rounded-lg" 
+                    required 
+                  />
+                  <div className="space-y-2">
+                    <input 
+                      value={tf.year} 
+                      onChange={e => setTf(p => ({ ...p, year: e.target.value, mainEra: detectMainEra(e.target.value) }))} 
+                      placeholder="年号（例: 2112）※必須" 
+                      className="w-full px-4 py-3 bg-white border rounded-lg border-purple-300" 
+                      list="existing-years-list"
+                      required 
+                    />
+                    <p className="text-xs text-purple-600">↑ 黒文字で表示されます（大区分は自動判定）</p>
+                  </div>
+                  <textarea 
+                    value={tf.description} 
+                    onChange={e => setTf(p => ({ ...p, description: e.target.value }))} 
+                    placeholder="説明（任意）" 
+                    className="w-full px-4 py-3 bg-white border rounded-lg h-24" 
+                  />
+                  <div className="bg-white border rounded-lg p-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">🖼️ 画像URL（複数追加可）</label>
+                    <p className="text-xs text-gray-500 mb-3">↑ Google検索で画像を右クリック →「画像アドレスをコピー」で取得</p>
+                    {tf.images.map((url, idx) => (
+                      <div key={idx} className="mb-3">
+                        <div className="flex gap-2">
+                          <input
+                            value={url}
+                            onChange={e => {
+                              const newImages = [...tf.images];
+                              newImages[idx] = e.target.value;
+                              setTf(p => ({ ...p, images: newImages }));
+                            }}
+                            placeholder={`画像URL ${idx + 1}`}
+                            className="flex-1 px-4 py-2 bg-gray-50 border rounded-lg"
+                          />
+                          {tf.images.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newImages = tf.images.filter((_, i) => i !== idx);
+                                setTf(p => ({ ...p, images: newImages }));
+                              }}
+                              className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                        {url && (
+                          <div className="mt-2 p-2 bg-gray-50 rounded border">
+                            <img src={url} alt="プレビュー" className="max-h-24 rounded" onError={(e) => e.target.style.display='none'} />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setTf(p => ({ ...p, images: [...p.images, ''] }))}
+                      className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-purple-400 hover:text-purple-600 transition-colors"
+                    >
+                      + 画像を追加
+                    </button>
+                  </div>
+                  <div className="bg-white border rounded-lg p-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">歴史カテゴリ（複数選択可）</label>
+                    <div className="flex flex-wrap gap-4">
+                      {[
+                        { id: 'japan', label: '🇯🇵 日本史', color: 'red' },
+                        { id: 'world', label: '🌐 世界史', color: 'blue' }
+                      ].map(cat => (
+                        <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={tf.historyCategories?.includes(cat.id)}
+                            onChange={() => setTf(p => {
+                              const cats = p.historyCategories || ['world'];
+                              if (cats.includes(cat.id)) {
+                                const newCats = cats.filter(c => c !== cat.id);
+                                return { ...p, historyCategories: newCats.length > 0 ? newCats : ['world'] };
+                              }
+                              return { ...p, historyCategories: [...cats, cat.id] };
+                            })}
+                            className={`w-4 h-4 rounded border-gray-300 text-${cat.color}-600 focus:ring-${cat.color}-500`}
+                          />
+                          <span className={`text-sm font-medium text-${cat.color}-700`}>{cat.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <button type="submit" disabled={saving} className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-bold text-lg shadow-lg disabled:opacity-50 hover:from-purple-700 hover:to-pink-700 transition-all">
+                    {saving ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : editMode ? '✏️ 更新する' : '💡 トリビアを追加'}
+                  </button>
+
+                  <div className="mt-8 pt-8 border-t">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-bold">📋 登録済みトリビア</h3>
+                      <div className="flex gap-1 flex-wrap">
+                        <button type="button" onClick={() => setAdminTriviaFilter('all')} className={`px-3 py-1 text-xs rounded-full ${adminTriviaFilter === 'all' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>すべて</button>
+                        <button type="button" onClick={() => setAdminTriviaFilter('japan')} className={`px-3 py-1 text-xs rounded-full ${adminTriviaFilter === 'japan' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>🇯🇵日本史</button>
+                        <button type="button" onClick={() => setAdminTriviaFilter('world')} className={`px-3 py-1 text-xs rounded-full ${adminTriviaFilter === 'world' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>🌐世界史</button>
+                        <span className="border-l mx-1"></span>
+                        <button type="button" onClick={() => setTriviaSort('year')} className={`px-3 py-1 text-xs rounded-full ${triviaSort === 'year' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>年代順</button>
+                        <button type="button" onClick={() => setTriviaSort('title')} className={`px-3 py-1 text-xs rounded-full ${triviaSort === 'title' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>五十音順</button>
+                      </div>
+                    </div>
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {(() => {
+                        // トリビアを抽出
+                        const allTrivia = sortedData.flatMap(item => 
+                          (item.content || [])
+                            .map((c, idx) => ({ item, content: c, idx }))
+                            .filter(({ content: c }) => c.type === 'trivia')
+                        );
+                        // フィルター適用
+                        const filtered = adminTriviaFilter === 'all' 
+                          ? allTrivia 
+                          : allTrivia.filter(({ content: c }) => hasHistoryCategory(c, adminTriviaFilter));
+                        // 並び替え
+                        const sorted = [...filtered].sort((a, b) => {
+                          if (triviaSort === 'year') {
+                            return parseYear(a.item.year) - parseYear(b.item.year);
+                          } else {
+                            return (a.content.title || '').localeCompare(b.content.title || '', 'ja');
+                          }
+                        });
+                        if (sorted.length === 0) {
+                          return <div className="text-center text-gray-500 py-4">トリビアがまだ登録されていません</div>;
+                        }
+                        return sorted.map(({ item, content: c, idx }) => {
+                          const cats = getHistoryCategories(c);
+                          return (
+                            <div key={`${item.id}-t-${idx}`} className={`flex items-center justify-between p-3 bg-white border rounded-lg ${editMode && editTarget?.itemId === item.id && editTarget?.idx === idx && editTarget?.type === 'trivia' ? 'ring-2 ring-yellow-400 bg-yellow-50' : ''}`}>
+                              <div className="flex-1">
+                                <div className="font-semibold flex items-center gap-2">
+                                  <Lightbulb className="w-4 h-4 text-yellow-500" />
+                                  {c.title}
+                                  {cats.includes('japan') && <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">🇯🇵</span>}
+                                  {cats.includes('world') && cats.includes('japan') && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">🌐</span>}
+                                </div>
+                                <div className="text-sm text-gray-500">{item.year}{c.images?.length > 0 && ` • 📷${c.images.length}枚`}</div>
+                              </div>
+                              <div className="flex gap-1">
+                                <button type="button" onClick={() => startEditTrivia(item.id, idx)} disabled={saving} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-50" title="編集">
+                                  <Pencil className="w-5 h-5" />
+                                </button>
+                                <button type="button" onClick={() => deleteContent(item.id, 'content', idx)} disabled={saving} className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50" title="削除">
                                   <X className="w-5 h-5" />
                                 </button>
                               </div>
