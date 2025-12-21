@@ -1695,7 +1695,13 @@ const App = () => {
                 const showEraLine = hasBCItems && hasADItems;
                 
                 return (
-                <div key={era.id} id={`era-${era.id}`} className="mb-16">
+                <div key={era.id} id={`era-${era.id}`} className="mb-16 relative">
+                  {/* アクティブな大区分を示す矢印マーカー */}
+                  {activeEra === era.id && (
+                    <div className="absolute left-0 top-24 -translate-y-1/2 z-20">
+                      <div className="w-0 h-0 border-t-[12px] border-t-transparent border-b-[12px] border-b-transparent border-l-[16px] border-l-purple-500"></div>
+                    </div>
+                  )}
                   <div className="flex items-center mb-6">
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center font-bold text-lg shadow-lg z-10 text-white">{era.name}</div>
                     <div className="ml-4 text-gray-500 text-sm">{era.year}</div>
