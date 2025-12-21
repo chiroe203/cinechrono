@@ -1765,12 +1765,11 @@ const App = () => {
                             // 前のアイテムと同じ年号なら年号ラベルを表示しない
                             const prevItem = itemIdx > 0 ? ti.items[itemIdx - 1] : null;
                             const showYearLabel = !prevItem || prevItem.year !== item.year;
-                            // トリビアのみの場合は専用表示、また年号が長すぎる場合も非表示（トリビアで誤入力されたテキスト対策）
+                            // トリビアのみの場合は年号ラベルを非表示（トリビアボックス内に年号が表示される）
                             const isOnlyTrivia = item.content?.every(c => c.type === 'trivia');
-                            const isValidYear = item.year && item.year.length <= 20; // 20文字以下の場合のみ有効な年号
                             return (
                             <div key={item.id} className="ml-20 mb-4">
-                              {showYearLabel && !isOnlyTrivia && isValidYear && <div className="text-lg font-bold mb-2 text-purple-600">{item.year}</div>}
+                              {showYearLabel && !isOnlyTrivia && <div className="text-lg font-bold mb-2 text-purple-600">{item.year}</div>}
                               {item.content?.map((c, i) => {
                                 const s = style(c.type);
                                 const icons = getTypeIcons(c.type);
@@ -1948,9 +1947,9 @@ const App = () => {
                           <CenturyMarker />
                           <div className="ml-20 mb-6">
                           {(() => {
+                            // トリビアのみの場合は年号ラベルを非表示（トリビアボックス内に年号が表示される）
                             const isOnlyTrivia = item.content?.every(c => c.type === 'trivia');
-                            const isValidYear = item.year && item.year.length <= 20; // 20文字以下の場合のみ有効な年号
-                            if (!isOnlyTrivia && isValidYear) {
+                            if (!isOnlyTrivia) {
                               return <div className="text-lg font-bold mb-2 text-purple-600">{item.year}</div>;
                             }
                             return null;
