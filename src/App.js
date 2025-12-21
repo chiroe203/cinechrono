@@ -768,6 +768,13 @@ const App = () => {
       alert('タイトルと年号は必須です');
       return;
     }
+    // 年号のバリデーション（数字で始まる20文字以内、またはBCで始まる）
+    const yearStr = tf.year.trim();
+    const isValidYear = /^(BC\s?)?\d/.test(yearStr) && yearStr.length <= 20;
+    if (!isValidYear) {
+      alert('年号は正しい形式で入力してください（例: 2112, 1930, BC500）\n※長いテキストは入力できません');
+      return;
+    }
     setSaving(true);
     
     const nt = { 
@@ -814,14 +821,24 @@ const App = () => {
         }
       } else {
         // 新規追加モード
-        const existingItem = data.find(x => x.mainEra === targetMainEra && !x.subEra && x.year === tf.year && !x.id?.startsWith('sample'));
+        // トリビア専用：既存のトリビア専用アイテム（contentがすべてtrivia）を探す
+        const existingTriviaItem = data.find(x => 
+          x.mainEra === targetMainEra && 
+          !x.subEra && 
+          x.year === tf.year && 
+          !x.id?.startsWith('sample') &&
+          x.content?.length > 0 &&
+          x.content.every(c => c.type === 'trivia')
+        );
         
-        if (existingItem) {
-          const updatedContent = [...(existingItem.content || []), nt];
-          const docRef = doc(db, 'timeline', existingItem.id);
+        if (existingTriviaItem) {
+          // 既存のトリビア専用アイテムに追加
+          const updatedContent = [...(existingTriviaItem.content || []), nt];
+          const docRef = doc(db, 'timeline', existingTriviaItem.id);
           await updateDoc(docRef, { content: updatedContent });
-          setData(p => p.map(item => item.id === existingItem.id ? { ...item, content: updatedContent } : item));
+          setData(p => p.map(item => item.id === existingTriviaItem.id ? { ...item, content: updatedContent } : item));
         } else {
+          // 新しいトリビア専用アイテムを作成（作品とは分離）
           const newData = { 
             mainEra: targetMainEra, 
             subEra: '', 
@@ -2916,12 +2933,12 @@ const App = () => {
                     <input 
                       value={tf.year} 
                       onChange={e => setTf(p => ({ ...p, year: e.target.value, mainEra: detectMainEra(e.target.value) }))} 
-                      placeholder="年号（例: 2112）※必須" 
+                      placeholder="年代（例: 1930年頃の中央アメリカ または 2112）※必須・大区分判定に使用" 
                       className="w-full px-4 py-3 bg-white border rounded-lg border-purple-300" 
                       list="existing-years-list"
                       required 
                     />
-                    <p className="text-xs text-purple-600">↑ 黒文字で表示されます（大区分は自動判定）</p>
+                    <p className="text-xs text-purple-600">↑ 開始年から大区分が自動判定されます</p>
                   </div>
                   <textarea 
                     value={tf.description} 
