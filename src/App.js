@@ -151,22 +151,42 @@ const App = () => {
   const [subEraSort, setSubEraSort] = useState('year');
   const [historyFilter, setHistoryFilter] = useState('all'); // all, japan, world
   // カテゴリーフィルター
-  const [categoryFilter, setCategoryFilter] = useState({
+  // カテゴリフィルターのデフォルト値
+  const defaultCategoryFilter = {
     movie: true,
     drama: true,
     manga: true,
     anime: true,
     game: true,
     trivia: false
+  };
+  
+  // localStorageから読み込み（なければデフォルト値）
+  const [categoryFilter, setCategoryFilter] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cinechrono-category-filter');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // デフォルト値とマージ（新しいカテゴリが追加された場合に対応）
+        return { ...defaultCategoryFilter, ...parsed };
+      }
+    } catch (e) {
+      console.error('Failed to load category filter from localStorage:', e);
+    }
+    return defaultCategoryFilter;
   });
   // フィルターUI内の一時的な選択状態
-  const [tempCategoryFilter, setTempCategoryFilter] = useState({
-    movie: true,
-    drama: true,
-    manga: true,
-    anime: true,
-    game: true,
-    trivia: false
+  const [tempCategoryFilter, setTempCategoryFilter] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cinechrono-category-filter');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...defaultCategoryFilter, ...parsed };
+      }
+    } catch (e) {
+      console.error('Failed to load category filter from localStorage:', e);
+    }
+    return defaultCategoryFilter;
   });
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   // 管理画面用フィルター
@@ -1694,14 +1714,11 @@ const App = () => {
                 });
                 const showEraLine = hasBCItems && hasADItems;
                 
+                // 現在の年（自動取得）
+                const currentRealYear = new Date().getFullYear();
+                
                 return (
                 <div key={era.id} id={`era-${era.id}`} className="mb-16 relative">
-                  {/* アクティブな大区分を示す矢印マーカー */}
-                  {activeEra === era.id && (
-                    <div className="absolute left-0 top-24 -translate-y-1/2 z-20">
-                      <div className="w-0 h-0 border-t-[12px] border-t-transparent border-b-[12px] border-b-transparent border-l-[16px] border-l-purple-500"></div>
-                    </div>
-                  )}
                   <div className="flex items-center mb-6">
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center font-bold text-lg shadow-lg z-10 text-white">{era.name}</div>
                     <div className="ml-4 text-gray-500 text-sm">{era.year}</div>
@@ -1712,6 +1729,9 @@ const App = () => {
                     const prevItem = tiIdx > 0 ? timelineItems[tiIdx - 1] : null;
                     const prevYear = prevItem ? (prevItem.type === 'subEraGroup' ? prevItem.startYear : parseYear(prevItem.year || prevItem.item?.year)) : null;
                     const showEraDivider = showEraLine && prevYear !== null && prevYear < 0 && currentYear > 0;
+                    
+                    // 現在年マーカーを表示するかチェック（現在年を超えた最初のアイテムの前に表示）
+                    const showNowArrow = currentYear > currentRealYear && (prevYear === null || prevYear <= currentRealYear);
                     
                     // 世紀マーカーを表示するかチェック（大区分をまたいでも追跡）
                     const currentCentury = currentYear ? getCentury(currentYear) : null;
@@ -1726,6 +1746,15 @@ const App = () => {
                     if (currentCentury) {
                       globalLastCentury = currentCentury;
                     }
+                    
+                    // 現在年マーカーコンポーネント（縦線の左側に大きな三角矢印）
+                    const NowArrow = () => showNowArrow ? (
+                      <div className="relative my-2 h-8">
+                        <div className="absolute left-1 top-1/2 -translate-y-1/2">
+                          <div className="w-0 h-0 border-t-[14px] border-t-transparent border-b-[14px] border-b-transparent border-l-[18px] border-l-purple-500"></div>
+                        </div>
+                      </div>
+                    ) : null;
                     
                     // 世紀マーカーコンポーネント（紀元と同じ形式で薄紫）
                     const CenturyMarker = () => showCenturyMarker ? (
@@ -1757,6 +1786,8 @@ const App = () => {
                           )}
                           {/* 世紀マーカー */}
                           <CenturyMarker />
+                          {/* 現在年マーカー */}
+                          <NowArrow />
                           <div className="mb-6">
                           {/* 時代区分ヘッダー */}
                           <div className="flex items-center ml-20 relative mb-4">
@@ -1968,6 +1999,8 @@ const App = () => {
                           )}
                           {/* 世紀マーカー */}
                           <CenturyMarker />
+                          {/* 現在年マーカー */}
+                          <NowArrow />
                           <div className="ml-20 mb-6">
                           {(() => {
                             // トリビアのみの場合は年号ラベルを非表示（トリビアボックス内に年号が表示される）
