@@ -2089,8 +2089,14 @@ const App = () => {
                   })()}
                   {/* YouTube動画がない場合にサムネイル画像を表示 */}
                   {sel.thumbnail && !(sel.youtubeUrls?.length > 0 || sel.youtubeUrl) && (
-                    <div className="mb-4">
-                      <img src={sel.thumbnail} alt={sel.title} className="w-full max-w-xs mx-auto rounded-lg shadow-md" onError={(e) => e.target.style.display='none'} />
+                    <div className="mb-4 flex justify-center">
+                      <img 
+                        src={sel.thumbnail} 
+                        alt={sel.title} 
+                        className="max-w-full max-h-80 object-contain rounded-lg shadow-md" 
+                        style={{ imageRendering: '-webkit-optimize-contrast' }}
+                        onError={(e) => e.target.style.display='none'} 
+                      />
                     </div>
                   )}
                   {sel.synopsis && <div className="mb-4"><div className="text-sm text-gray-500 mb-2">あらすじ</div><p className="text-gray-700">{sel.synopsis}</p></div>}
