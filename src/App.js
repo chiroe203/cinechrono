@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Film, X, Gamepad2, BookMarked, Settings, Clock, Menu, ExternalLink, LogOut, Loader2, Pencil, Swords, ScrollText, MapPin, ChevronLeft, ChevronRight, Tv, Skull, AlertCircle, ToggleLeft, ToggleRight, Filter } from 'lucide-react';
 import { db, auth, fetchTimelineData, addTimelineItem, deleteTimelineItem, loginAdmin, logoutAdmin } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -271,6 +271,17 @@ const App = () => {
     return (a.id || '').localeCompare(b.id || '');
   });
 
+  // 既存の年号リストを抽出（入力補完用）
+  const existingYears = useMemo(() => {
+    const years = new Set();
+    sortedData.forEach(item => {
+      if (item.year) years.add(item.year);
+      // 時代区分の年代も追加
+      if (item.subEraYears) years.add(item.subEraYears);
+    });
+    return [...years].sort((a, b) => parseYear(a) - parseYear(b));
+  }, [sortedData]);
+
   // Firebase認証状態の監視
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -399,6 +410,8 @@ const App = () => {
         return { icon: Skull, label: '💀 疫病・災害', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-600' };
       case 'treaty': 
         return { icon: ScrollText, label: '📜 条約・宣言', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-600' };
+      case 'event': 
+        return { icon: AlertCircle, label: '📌 その他イベント', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-500' };
       default: 
         return { icon: Clock, label: '🕐 時代区分', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-600' };
     }
@@ -1606,8 +1619,9 @@ const App = () => {
                                 const s = style(c.type);
                                 const icons = getTypeIcons(c.type);
                                 const displayPeriod = c.periodRange || '';
+                                const originalIdx = c._originalIdx !== undefined ? c._originalIdx : i;
                                 return (
-                                  <div key={i} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: i }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
+                                  <div key={originalIdx} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: originalIdx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2">
                                         {icons.map((ic, idx) => {
@@ -1710,8 +1724,9 @@ const App = () => {
                                       const s = style(c.type);
                                       const icons = getTypeIcons(c.type);
                                       const displayPeriod = c.periodRange || '';
+                                      const originalIdx = c._originalIdx !== undefined ? c._originalIdx : i;
                                       return (
-                                        <div key={i} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: i }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
+                                        <div key={originalIdx} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: originalIdx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
                                           <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
                                               {icons.map((ic, idx) => {
@@ -1761,8 +1776,9 @@ const App = () => {
                             const s = style(c.type);
                             const icons = getTypeIcons(c.type);
                             const displayPeriod = c.periodRange || '';
+                            const originalIdx = c._originalIdx !== undefined ? c._originalIdx : i;
                             return (
-                              <div key={i} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: i }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
+                              <div key={originalIdx} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: originalIdx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
                                     {icons.map((ic, idx) => {
@@ -2291,12 +2307,18 @@ const App = () => {
                       onChange={e => setCf(p => ({ ...p, year: e.target.value, mainEra: detectMainEra(e.target.value) }))} 
                       placeholder={cf.parentSubEra ? "主な時代（例: 1907）※任意（親グループ内に表示）" : "主な時代（例: 1907）※必須・ソート基準"} 
                       className={`w-full px-4 py-3 bg-white border rounded-lg ${cf.parentSubEra ? 'border-gray-300' : 'border-purple-300'}`} 
-                      required={!cf.parentSubEra} 
+                      required={!cf.parentSubEra}
+                      list="existing-years-list"
                     />
+                    <datalist id="existing-years-list">
+                      {existingYears.map(year => (
+                        <option key={year} value={year} />
+                      ))}
+                    </datalist>
                     <p className={`text-xs ${cf.parentSubEra ? 'text-gray-500' : 'text-purple-600'}`}>
                       {cf.parentSubEra 
                         ? '↑ 親グループ内に表示されます。年号を入力すると紫色のラベルが付きます' 
-                        : '↑ 紫色で表示され、年表の並び順に使用されます（大区分は自動判定）'}
+                        : '↑ 紫色で表示され、年表の並び順に使用されます（大区分は自動判定）・入力で既存年号をサジェスト'}
                     </p>
                   </div>
                   <div className="space-y-2">
@@ -2501,6 +2523,7 @@ const App = () => {
                     <option value="incident">❗ 事件</option>
                     <option value="plague">💀 疫病・災害</option>
                     <option value="treaty">📜 条約・宣言</option>
+                    <option value="event">📌 その他イベント</option>
                   </select>
                   <input 
                     value={sf.subEra} 
