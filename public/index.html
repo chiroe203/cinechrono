@@ -4,11 +4,36 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="歴史的瞬間と映画・漫画・ゲームを年表で繋ぐWebアプリ - CINEchrono TRAVEL" />
+    <meta name="theme-color" content="#7c3aed" />
+    
+    <!-- SEO基本設定 -->
+    <title>CINEchrono TRAVEL - 映画・漫画・アニメで学ぶ世界史年表</title>
+    <meta name="description" content="映画、漫画、アニメ、ゲームで歴史を学ぼう。グラディエーターからローマ帝国、レ・ミゼラブルからフランス革命へ。作品と歴史がつながるインタラクティブ年表サイト。中高生の世界史学習にも最適。" />
+    <meta name="keywords" content="世界史,年表,映画,漫画,アニメ,ゲーム,歴史,学習,グラディエーター,レ・ミゼラブル,中学生,高校生" />
+    <meta name="author" content="CINEchrono TRAVEL" />
+    <link rel="canonical" href="https://cinechrono.com/" />
+    
+    <!-- OGP (SNSシェア用) -->
+    <meta property="og:title" content="CINEchrono TRAVEL - 映画・漫画で学ぶ世界史年表" />
+    <meta property="og:description" content="映画、漫画、アニメ、ゲームで歴史を学ぼう。作品と歴史がつながるインタラクティブ年表サイト。" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://cinechrono.com/" />
+    <meta property="og:image" content="https://cinechrono.com/ogp-image.png" />
+    <meta property="og:site_name" content="CINEchrono TRAVEL" />
+    <meta property="og:locale" content="ja_JP" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CINEchrono TRAVEL - 映画・漫画で学ぶ世界史年表" />
+    <meta name="twitter:description" content="映画、漫画、アニメ、ゲームで歴史を学ぼう。作品と歴史がつながるインタラクティブ年表サイト。" />
+    <meta name="twitter:image" content="https://cinechrono.com/ogp-image.png" />
+    
+    <!-- その他SEO -->
+    <meta name="robots" content="index, follow" />
+    <meta name="googlebot" content="index, follow" />
+    
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <title>CINEchrono TRAVEL - 歴史と物語の旅</title>
     
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z97NXZ5KV4"></script>
@@ -18,9 +43,27 @@
       gtag('js', new Date());
       gtag('config', 'G-Z97NXZ5KV4');
     </script>
+    
+    <!-- 構造化データ (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "CINEchrono TRAVEL",
+      "alternateName": "シネクロノトラベル",
+      "url": "https://cinechrono.com/",
+      "description": "映画、漫画、アニメ、ゲームで歴史を学ぶインタラクティブ年表サイト",
+      "inLanguage": "ja",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://cinechrono.com/?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <noscript>このアプリを使用するにはJavaScriptを有効にしてください。</noscript>
     <div id="root"></div>
   </body>
 </html>

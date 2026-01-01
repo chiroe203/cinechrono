@@ -10,7 +10,9 @@ const App = () => {
   const navigate = useNavigate();
   
   // URLからページを判定
-  const page = location.pathname === '/about' ? 'about' : 'timeline';
+  const page = location.pathname === '/about' ? 'about' 
+             : location.pathname === '/request' ? 'request'
+             : 'timeline';
   
   const [sel, setSel] = useState(null);
   const [activeEra, setActiveEra] = useState(null);
@@ -1489,7 +1491,7 @@ const App = () => {
           </div>
           <button onClick={() => setMenu(!menu)} className="p-2 hover:bg-gray-100 rounded-lg"><Menu className="w-6 h-6" /></button>
         </div>
-        {menu && <div className="bg-white border-t">{[['/', '年表と物語'], ['/about', 'CINEchrono TRAVELとは']].map(([path, name]) => <button key={path} onClick={() => { navigate(path); setMenu(false); }} className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${location.pathname === path || (path === '/' && location.pathname === '') ? 'bg-purple-50 text-purple-700 font-semibold' : ''}`}>{name}</button>)}</div>}
+        {menu && <div className="bg-white border-t">{[['/', '年表と物語'], ['/about', 'CINEchrono TRAVELとは'], ['/request', '📝 作品リクエスト']].map(([path, name]) => <button key={path} onClick={() => { navigate(path); setMenu(false); }} className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${location.pathname === path || (path === '/' && location.pathname === '') ? 'bg-purple-50 text-purple-700 font-semibold' : ''}`}>{name}</button>)}</div>}
       </header>
 
       {adminMode && (
@@ -2262,6 +2264,37 @@ const App = () => {
               <p className="text-gray-600 mb-4">さあ、年表を開いて、時代の旅に出かけましょう。</p>
               <button onClick={() => navigate('/')} className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold hover:from-purple-700 hover:to-pink-700 shadow-lg transition-all">
                 🎬 年表を見る
+              </button>
+            </div>
+          </div>
+        )}
+
+        {page === 'request' && (
+          <div className="max-w-4xl mx-auto px-4 py-16">
+            <h1 className="text-3xl md:text-4xl font-bold text-center mb-4 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              📝 作品リクエスト
+            </h1>
+            <p className="text-center text-gray-600 mb-8 max-w-xl mx-auto">
+              「この作品を追加してほしい！」「この時代の作品が見たい！」など、
+              あなたのリクエストをお待ちしています。匿名で送信できます。
+            </p>
+            <div className="flex justify-center">
+              <iframe 
+                src="https://docs.google.com/forms/d/e/1FAIpQLSffX8Ix4ET2l0u8_fgwnvM33EbfRQvjE654qvVsiP_EVOGz6g/viewform?embedded=true" 
+                width="640" 
+                height="1218" 
+                frameBorder="0" 
+                marginHeight="0" 
+                marginWidth="0"
+                title="作品リクエストフォーム"
+                className="max-w-full rounded-lg shadow-lg"
+              >
+                読み込んでいます…
+              </iframe>
+            </div>
+            <div className="mt-8 text-center">
+              <button onClick={() => navigate('/')} className="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 font-medium transition-colors">
+                ← 年表に戻る
               </button>
             </div>
           </div>
