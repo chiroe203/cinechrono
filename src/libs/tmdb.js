@@ -1,0 +1,178 @@
+// TMDB API接続（映画・ドラマ・アニメ情報 + ポスター画像）
+// https://www.themoviedb.org/
+
+const TMDB_API_KEY = process.env.REACT_APP_TMDB_API_KEY;
+const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
+
+// 画像サイズオプション
+// w92, w154, w185, w342, w500, w780, original
+const POSTER_SIZE = 'w500';
+
+/**
+ * 映画を検索して情報を取得
+ * @param {string} movieName - 映画タイトル（日本語または英語）
+ * @param {string} directorName - 監督名（任意、同名映画の絞り込み用）
+ * @returns {Promise<Object|null>} 映画情報
+ */
+export const searchMovie = async (movieName, directorName = '') => {
+  if (!TMDB_API_KEY) {
+    console.error('TMDB API key is not set');
+    return null;
+  }
+
+  try {
+    // 映画を検索
+    const searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(movieName)}&language=ja-JP`;
+    const searchResponse = await fetch(searchUrl);
+    const searchData = await searchResponse.json();
+
+    if (!searchData.results || searchData.results.length === 0) {
+      console.log('Movie not found:', movieName);
+      return null;
+    }
+
+    let movie = searchData.results[0];
+
+    // 監督名が指定されている場合は絞り込み
+    if (directorName) {
+      for (const result of searchData.results) {
+        const creditsUrl = `${TMDB_BASE_URL}/movie/${result.id}/credits?api_key=${TMDB_API_KEY}`;
+        const creditsResponse = await fetch(creditsUrl);
+        const creditsData = await creditsResponse.json();
+        
+        const director = creditsData.crew?.find(
+          person => person.job === 'Director' && 
+          person.name.toLowerCase().includes(directorName.toLowerCase())
+        );
+        
+        if (director) {
+          movie = result;
+          break;
+        }
+      }
+    }
+
+    // 詳細情報を取得
+    const detailUrl = `${TMDB_BASE_URL}/movie/${movie.id}?api_key=${TMDB_API_KEY}&language=ja-JP`;
+    const detailResponse = await fetch(detailUrl);
+    const detailData = await detailResponse.json();
+
+    // クレジット情報を取得（監督）
+    const creditsUrl = `${TMDB_BASE_URL}/movie/${movie.id}/credits?api_key=${TMDB_API_KEY}`;
+    const creditsResponse = await fetch(creditsUrl);
+    const creditsData = await creditsResponse.json();
+
+    const director = creditsData.crew?.find(person => person.job === 'Director');
+
+    return {
+      mediaType: 'movie',
+      id: movie.id,
+      title: detailData.title,
+      originalTitle: detailData.original_title,
+      releaseDate: detailData.release_date,
+      runtime: detailData.runtime,
+      overview: detailData.overview,
+      director: director?.name || null,
+      posterPath: detailData.poster_path,
+      posterUrl: detailData.poster_path 
+        ? `${TMDB_IMAGE_BASE_URL}/${POSTER_SIZE}${detailData.poster_path}` 
+        : null,
+      backdropUrl: detailData.backdrop_path
+        ? `${TMDB_IMAGE_BASE_URL}/w780${detailData.backdrop_path}`
+        : null
+    };
+  } catch (error) {
+    console.error('TMDB API error:', error);
+    return null;
+  }
+};
+
+/**
+ * TVシリーズ（ドラマ・アニメ）を検索して情報を取得
+ * @param {string} tvName - 番組タイトル（日本語または英語）
+ * @returns {Promise<Object|null>} TV情報
+ */
+export const searchTV = async (tvName) => {
+  if (!TMDB_API_KEY) {
+    console.error('TMDB API key is not set');
+    return null;
+  }
+
+  try {
+    // TVシリーズを検索
+    const searchUrl = `${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(tvName)}&language=ja-JP`;
+    const searchResponse = await fetch(searchUrl);
+    const searchData = await searchResponse.json();
+
+    if (!searchData.results || searchData.results.length === 0) {
+      console.log('TV series not found:', tvName);
+      return null;
+    }
+
+    const tv = searchData.results[0];
+
+    // 詳細情報を取得
+    const detailUrl = `${TMDB_BASE_URL}/tv/${tv.id}?api_key=${TMDB_API_KEY}&language=ja-JP`;
+    const detailResponse = await fetch(detailUrl);
+    const detailData = await detailResponse.json();
+
+    // 総話数を計算
+    const totalEpisodes = detailData.seasons?.reduce((sum, season) => {
+      // シーズン0（特別編）は除外することも可能
+      return sum + (season.episode_count || 0);
+    }, 0) || detailData.number_of_episodes;
+
+    return {
+      mediaType: 'tv',
+      id: tv.id,
+      name: detailData.name,
+      originalName: detailData.original_name,
+      firstAirDate: detailData.first_air_date,
+      lastAirDate: detailData.last_air_date,
+      numberOfSeasons: detailData.number_of_seasons,
+      numberOfEpisodes: totalEpisodes,
+      episodeRunTime: detailData.episode_run_time?.[0] || null,
+      episodeRuntime: detailData.episode_run_time?.[0] || null,
+      overview: detailData.overview,
+      creators: detailData.created_by?.map(c => c.name) || [],
+      creator: detailData.created_by?.map(c => c.name).join('、') || null,
+      posterPath: detailData.poster_path,
+      posterUrl: detailData.poster_path 
+        ? `${TMDB_IMAGE_BASE_URL}/${POSTER_SIZE}${detailData.poster_path}` 
+        : null,
+      backdropUrl: detailData.backdrop_path
+        ? `${TMDB_IMAGE_BASE_URL}/w780${detailData.backdrop_path}`
+        : null,
+      status: detailData.status,
+      genres: detailData.genres?.map(g => g.name) || []
+    };
+  } catch (error) {
+    console.error('TMDB API error:', error);
+    return null;
+  }
+};
+
+/**
+ * 日付をフォーマット
+ * @param {string} dateStr - YYYY-MM-DD形式の日付
+ * @returns {string} フォーマット済み日付
+ */
+export const formatMovieReleaseDate = (dateStr) => {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+};
+
+/**
+ * 上映時間をフォーマット
+ * @param {number} minutes - 分数
+ * @returns {string} フォーマット済み時間
+ */
+export const formatRuntime = (minutes) => {
+  if (!minutes) return null;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours === 0) return `${mins}分`;
+  return `${hours}時間${mins}分`;
+};

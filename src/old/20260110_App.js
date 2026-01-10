@@ -5,8 +5,6 @@ import { db, auth, fetchTimelineData, addTimelineItem, deleteTimelineItem, login
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import Articles from './pages/Articles';
-import { searchGame, formatReleaseDate } from './libs/rawg';
-import { searchMovie, searchTV, formatMovieReleaseDate, formatRuntime } from './libs/tmdb';
 
 const App = () => {
   const location = useLocation();
@@ -148,7 +146,7 @@ const App = () => {
     return null;
   };
   
-  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
+  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
   const [ef, setEf] = useState({ eventType: 'war', historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', year: '', desc: '', detail: '', topic: { title: '', url: '' } });
   const [sf, setSf] = useState({ mainEra: 'modern', subEra: '', subEraType: 'normal', subEraYears: '', parentSubEra: '', historyCategories: ['world'], desc: '', detail: '' });
   const [tf, setTf] = useState({ title: '', year: '', mainEra: 'modern', historyCategories: ['world'], description: '', images: [''] }); // トリビア用フォーム
@@ -201,139 +199,6 @@ const App = () => {
   const [adminSubEraFilter, setAdminSubEraFilter] = useState('all');
   const [adminTriviaFilter, setAdminTriviaFilter] = useState('all');
   const [triviaSort, setTriviaSort] = useState('year');
-  
-  // ゲームプラットフォーム情報用State
-  const [gameInfo, setGameInfo] = useState(null);
-  const [gameInfoLoading, setGameInfoLoading] = useState(false);
-  
-  // 自動取得サムネイル用State
-  const [autoThumbnail, setAutoThumbnail] = useState(null);
-  
-  // ゲームプラットフォーム情報取得関数
-  const fetchGameInfo = async (englishTitle) => {
-    if (!englishTitle) {
-      setGameInfo(null);
-      return;
-    }
-    setGameInfoLoading(true);
-    try {
-      const info = await searchGame(englishTitle);
-      setGameInfo(info);
-      // サムネイル自動取得
-      if (info?.backgroundImage) {
-        setAutoThumbnail(info.backgroundImage);
-      }
-    } catch (error) {
-      console.error('Failed to fetch game info:', error);
-      setGameInfo(null);
-    } finally {
-      setGameInfoLoading(false);
-    }
-  };
-  
-  // サムネイルをFirestoreに自動保存する関数
-  const saveThumbnailToFirestore = async (itemId, idx, thumbnailUrl) => {
-    if (!itemId || idx === undefined || !thumbnailUrl || itemId.startsWith('sample')) return;
-    
-    try {
-      const item = data.find(i => i.id === itemId);
-      if (!item || !item.content || !item.content[idx]) return;
-      
-      // 既にサムネイルがある場合はスキップ
-      if (item.content[idx].thumbnail) return;
-      
-      // コンテンツを更新
-      const updatedContent = [...item.content];
-      updatedContent[idx] = { ...updatedContent[idx], thumbnail: thumbnailUrl };
-      
-      // Firestoreを更新
-      const docRef = doc(db, 'timeline', itemId);
-      await updateDoc(docRef, { content: updatedContent });
-      
-      // ローカルデータも更新
-      setData(p => p.map(i => i.id === itemId ? { ...i, content: updatedContent } : i));
-      
-      console.log('サムネイルを自動保存しました:', item.content[idx].title);
-    } catch (error) {
-      console.error('サムネイル自動保存エラー:', error);
-    }
-  };
-  
-  // 選択中アイテムが変わったときにプラットフォーム情報を取得
-  useEffect(() => {
-    if (sel && (sel.type === 'game' || (Array.isArray(sel.type) && sel.type.includes('game'))) && sel.englishTitle) {
-      fetchGameInfo(sel.englishTitle);
-    } else {
-      setGameInfo(null);
-    }
-    // selが変わったらautoThumbnailをリセット
-    setAutoThumbnail(null);
-  }, [sel]);
-  
-  // 映画情報用State → TMDB情報（映画・ドラマ・アニメ共通）
-  const [tmdbInfo, setTmdbInfo] = useState(null);
-  const [tmdbInfoLoading, setTmdbInfoLoading] = useState(false);
-  
-  // TMDB情報取得関数（映画・ドラマ・アニメ対応）
-  const fetchTmdbInfo = async (title, englishTitle, categories, searchDirector = '') => {
-    // 検索するタイトル（英語タイトルがあればそちらを優先）
-    const searchTitle = englishTitle || title;
-    if (!searchTitle) {
-      setTmdbInfo(null);
-      return;
-    }
-    
-    // カテゴリから検索タイプを判定
-    const isMovie = categories === 'movie' || (Array.isArray(categories) && categories.includes('movie'));
-    const isDrama = categories === 'drama' || (Array.isArray(categories) && categories.includes('drama'));
-    const isAnime = categories === 'anime' || (Array.isArray(categories) && categories.includes('anime'));
-    
-    if (!isMovie && !isDrama && !isAnime) {
-      setTmdbInfo(null);
-      return;
-    }
-    
-    setTmdbInfoLoading(true);
-    try {
-      let info = null;
-      
-      if (isMovie) {
-        // 映画検索
-        info = await searchMovie(searchTitle, searchDirector);
-      } else if (isDrama || isAnime) {
-        // ドラマ・アニメはTV検索
-        info = await searchTV(searchTitle);
-      }
-      
-      setTmdbInfo(info);
-      // サムネイル自動取得
-      if (info?.posterUrl) {
-        setAutoThumbnail(info.posterUrl);
-      }
-    } catch (error) {
-      console.error('Failed to fetch TMDB info:', error);
-      setTmdbInfo(null);
-    } finally {
-      setTmdbInfoLoading(false);
-    }
-  };
-  
-  // 選択中アイテムが変わったときにTMDB情報を取得
-  useEffect(() => {
-    if (sel && (sel.type === 'movie' || sel.type === 'drama' || sel.type === 'anime' || 
-        (Array.isArray(sel.type) && (sel.type.includes('movie') || sel.type.includes('drama') || sel.type.includes('anime'))))) {
-      fetchTmdbInfo(sel.title, sel.englishTitle, sel.type, sel.searchDirector || '');
-    } else {
-      setTmdbInfo(null);
-    }
-  }, [sel]);
-  
-  // autoThumbnailが取得できたらFirestoreに自動保存
-  useEffect(() => {
-    if (autoThumbnail && sel && sel.itemId && sel.idx !== undefined && !sel.thumbnail) {
-      saveThumbnailToFirestore(sel.itemId, sel.idx, autoThumbnail);
-    }
-  }, [autoThumbnail, sel]);
 
   // historyCategory/historyCategoriesの正規化ヘルパー
   const getHistoryCategories = (item) => {
@@ -676,7 +541,7 @@ const App = () => {
 
   // フォームリセット
   const resetContentForm = () => {
-    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
+    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
     setEditMode(false);
     setEditTarget(null);
   };
@@ -728,8 +593,6 @@ const App = () => {
       categories: Array.isArray(content.type) ? content.type : [content.type || 'movie'],
       historyCategories: getHistoryCategories(content),
       title: content.title,
-      englishTitle: content.englishTitle || '',
-      searchDirector: content.searchDirector || '',
       mainEra: item.mainEra,
       subEra: item.subEra || '',
       subEraYears: item.subEraYears || '',
@@ -857,53 +720,14 @@ const App = () => {
       }
     }
     
-    // サムネイル自動取得（手動入力がない場合のみ）
-    let autoFetchedThumbnail = '';
-    if (!cf.thumbnail) {
-      try {
-        const isMovie = cf.categories.includes('movie');
-        const isDrama = cf.categories.includes('drama');
-        const isAnime = cf.categories.includes('anime');
-        const isGame = cf.categories.includes('game');
-        
-        if (isGame && cf.englishTitle) {
-          // ゲーム: RAWG APIから取得
-          const gameData = await searchGame(cf.englishTitle);
-          if (gameData?.backgroundImage) {
-            autoFetchedThumbnail = gameData.backgroundImage;
-          }
-        } else if (isMovie || isDrama || isAnime) {
-          // 映画・ドラマ・アニメ: TMDB APIから取得
-          const searchTitle = cf.englishTitle || cf.title;
-          if (searchTitle) {
-            if (isMovie) {
-              const movieData = await searchMovie(searchTitle, cf.searchDirector || '');
-              if (movieData?.posterUrl) {
-                autoFetchedThumbnail = movieData.posterUrl;
-              }
-            } else {
-              const tvData = await searchTV(searchTitle);
-              if (tvData?.posterUrl) {
-                autoFetchedThumbnail = tvData.posterUrl;
-              }
-            }
-          }
-        }
-      } catch (apiError) {
-        console.log('サムネイル自動取得スキップ:', apiError.message);
-      }
-    }
-    
     const nc = { 
       type: cf.categories.length === 1 ? cf.categories[0] : cf.categories, 
       historyCategories: cf.historyCategories || ['world'],
       title: cf.title, 
-      englishTitle: cf.englishTitle || '',
-      searchDirector: cf.searchDirector || '',
       periodRange: cf.periodRange || '',
       parentSubEra: cf.parentSubEra || '',
       synopsis: cf.synopsis || '', 
-      thumbnail: cf.thumbnail || autoFetchedThumbnail || '',
+      thumbnail: cf.thumbnail || '',
       youtubeUrls: cf.youtubeUrls.filter(url => url.trim() !== ''),
       links: cf.links.filter(l => l.url), 
       topic: cf.topic.title && cf.topic.url ? cf.topic : null 
@@ -1584,94 +1408,92 @@ const App = () => {
       <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur z-50 shadow-md border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent cursor-pointer" onClick={() => navigate('/')}>CINEchrono TRAVEL</h1>
-          {/* 歴史フィルター - 年表ページでのみ表示 */}
-          {page === 'timeline' && (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
-                <button 
-                  onClick={() => setHistoryFilter('all')} 
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${historyFilter === 'all' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}
-                >
-                  🌍 全部
-                </button>
-                <button 
-                  onClick={() => setHistoryFilter('japan')} 
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${historyFilter === 'japan' ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}
-                >
-                  🇯🇵 日本史
-                </button>
-                <button 
-                  onClick={() => setHistoryFilter('world')} 
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${historyFilter === 'world' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}
-                >
-                  🌐 世界史
-                </button>
-              </div>
-              {/* カテゴリーフィルター */}
-              <div className="relative">
-                <button 
-                  onClick={() => {
-                    if (!showCategoryFilter) {
-                      // 開くときに現在の適用済みフィルターをコピー
-                      setTempCategoryFilter({ ...categoryFilter });
-                    }
-                    setShowCategoryFilter(!showCategoryFilter);
-                  }}
-                  className={`p-2 rounded-lg transition-all ${Object.values(categoryFilter).every(v => v) ? 'hover:bg-gray-100 text-gray-600' : 'bg-purple-100 text-purple-700'}`}
-                  title="カテゴリーで絞り込み"
-                >
-                  <Filter className="w-5 h-5" />
-                </button>
-                {showCategoryFilter && (
-                  <>
-                    {/* 背景のオーバーレイ */}
-                    <div className="fixed inset-0 z-40" onClick={() => setShowCategoryFilter(false)} />
-                    {/* フィルターメニュー */}
-                    <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-xl border p-4 z-50 min-w-[200px]">
-                      <div className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                        <Filter className="w-4 h-4" />
-                        カテゴリーで絞り込み
-                      </div>
-                      <div className="space-y-2">
-                        {[
-                          { id: 'movie', label: '🎬 映画', color: 'blue' },
-                          { id: 'drama', label: '📺 ドラマ', color: 'blue' },
-                          { id: 'manga', label: '📚 漫画', color: 'green' },
-                          { id: 'anime', label: '📺 アニメ', color: 'green' },
-                          { id: 'game', label: '🎮 ゲーム', color: 'yellow' },
-                          { id: 'trivia', label: '💡 トリビア', color: 'gray' }
-                        ].map(cat => (
-                          <label key={cat.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded p-2 -mx-2">
-                            <input
-                              type="checkbox"
-                              checked={tempCategoryFilter[cat.id]}
-                              onChange={(e) => setTempCategoryFilter(prev => ({ ...prev, [cat.id]: e.target.checked }))}
-                              className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                            />
-                            <span className="text-sm">{cat.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <div className="mt-3 pt-3 border-t">
-                        <button 
-                          onClick={() => {
-                            setCategoryFilter({ ...tempCategoryFilter });
-                            setShowCategoryFilter(false);
-                          }}
-                          className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-bold text-sm hover:from-purple-700 hover:to-pink-700"
-                        >
-                          表示
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
+          {/* 歴史フィルター */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
+              <button 
+                onClick={() => setHistoryFilter('all')} 
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${historyFilter === 'all' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}
+              >
+                🌍 全部
+              </button>
+              <button 
+                onClick={() => setHistoryFilter('japan')} 
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${historyFilter === 'japan' ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}
+              >
+                🇯🇵 日本史
+              </button>
+              <button 
+                onClick={() => setHistoryFilter('world')} 
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${historyFilter === 'world' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow' : 'text-gray-600 hover:bg-gray-200'}`}
+              >
+                🌐 世界史
+              </button>
             </div>
-          )}
+            {/* カテゴリーフィルター */}
+            <div className="relative">
+              <button 
+                onClick={() => {
+                  if (!showCategoryFilter) {
+                    // 開くときに現在の適用済みフィルターをコピー
+                    setTempCategoryFilter({ ...categoryFilter });
+                  }
+                  setShowCategoryFilter(!showCategoryFilter);
+                }}
+                className={`p-2 rounded-lg transition-all ${Object.values(categoryFilter).every(v => v) ? 'hover:bg-gray-100 text-gray-600' : 'bg-purple-100 text-purple-700'}`}
+                title="カテゴリーで絞り込み"
+              >
+                <Filter className="w-5 h-5" />
+              </button>
+              {showCategoryFilter && (
+                <>
+                  {/* 背景のオーバーレイ */}
+                  <div className="fixed inset-0 z-40" onClick={() => setShowCategoryFilter(false)} />
+                  {/* フィルターメニュー */}
+                  <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-xl border p-4 z-50 min-w-[200px]">
+                    <div className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                      <Filter className="w-4 h-4" />
+                      カテゴリーで絞り込み
+                    </div>
+                    <div className="space-y-2">
+                      {[
+                        { id: 'movie', label: '🎬 映画', color: 'blue' },
+                        { id: 'drama', label: '📺 ドラマ', color: 'blue' },
+                        { id: 'manga', label: '📚 漫画', color: 'green' },
+                        { id: 'anime', label: '📺 アニメ', color: 'green' },
+                        { id: 'game', label: '🎮 ゲーム', color: 'yellow' },
+                        { id: 'trivia', label: '💡 トリビア', color: 'gray' }
+                      ].map(cat => (
+                        <label key={cat.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded p-2 -mx-2">
+                          <input
+                            type="checkbox"
+                            checked={tempCategoryFilter[cat.id]}
+                            onChange={(e) => setTempCategoryFilter(prev => ({ ...prev, [cat.id]: e.target.checked }))}
+                            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                          />
+                          <span className="text-sm">{cat.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="mt-3 pt-3 border-t">
+                      <button 
+                        onClick={() => {
+                          setCategoryFilter({ ...tempCategoryFilter });
+                          setShowCategoryFilter(false);
+                        }}
+                        className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-bold text-sm hover:from-purple-700 hover:to-pink-700"
+                      >
+                        表示
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
           <button onClick={() => setMenu(!menu)} className="p-2 hover:bg-gray-100 rounded-lg"><Menu className="w-6 h-6" /></button>
         </div>
-        {menu && <div className="bg-white border-t">{[['/', '🕰️ 年表と物語'], ['/articles', '📚 トピック記事'], ['/about', '📝 CINEchrono TRAVELとは'], ['/request', '💬 作品リクエスト']].map(([path, name]) => <button key={path} onClick={() => { navigate(path); setMenu(false); }} className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${location.pathname === path || (path === '/' && location.pathname === '') ? 'bg-purple-50 text-purple-700 font-semibold' : ''}`}>{name}</button>)}</div>}
+        {menu && <div className="bg-white border-t">{[['/', '⏰ 年表と物語'], ['/articles', '📚 トピック記事'], ['/about', '✍️ CINEchrono TRAVELとは'], ['/request', '💬 作品リクエスト']].map(([path, name]) => <button key={path} onClick={() => { navigate(path); setMenu(false); }} className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${location.pathname === path || (path === '/' && location.pathname === '') ? 'bg-purple-50 text-purple-700 font-semibold' : ''}`}>{name}</button>)}</div>}
       </header>
 
       {adminMode && (
@@ -2503,9 +2325,9 @@ const App = () => {
       </footer>
 
       {sel && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col my-4 sm:my-auto">
-            <div className="flex-shrink-0 bg-white p-4 flex justify-between items-center border-b rounded-t-3xl">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-white p-4 flex justify-between items-center border-b">
               <h2 className="text-xl font-bold">{sel.type === 'history' ? eventIcon(sel.eventType).label : sel.type === 'subEra' ? subEraIcon(sel.subEraType).label : label(sel.type)}</h2>
               <div className="flex items-center gap-2">
                 {adminMode && (
@@ -2520,13 +2342,8 @@ const App = () => {
                 <button onClick={() => setSel(null)} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><X className="w-5 h-5" /></button>
               </div>
             </div>
-            <div className="p-6 overflow-y-auto flex-1">
-              <h3 className="text-2xl font-bold mb-2 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">{sel.title}</h3>
-              {/* 英語タイトル（ゲーム・映画・ドラマ・アニメ） */}
-              {(sel.type === 'game' || sel.type === 'movie' || sel.type === 'drama' || sel.type === 'anime' || 
-                (Array.isArray(sel.type) && (sel.type.includes('game') || sel.type.includes('movie') || sel.type.includes('drama') || sel.type.includes('anime')))) && sel.englishTitle && (
-                <p className="text-sm text-gray-500 mb-4">英語タイトル: {sel.englishTitle}</p>
-              )}
+            <div className="p-6">
+              <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">{sel.title}</h3>
               {sel.type === 'subEra' ? (
                 <>
                   {sel.subEraYears && <div className="mb-4"><div className="text-sm text-gray-500 mb-1">期間</div><div className="text-lg font-semibold">{sel.subEraYears}</div></div>}
@@ -2601,32 +2418,19 @@ const App = () => {
                       </div>
                     );
                   })()}
-                  {/* YouTube動画がない場合にサムネイル画像を表示（自動取得優先） */}
-                  {(autoThumbnail || sel.thumbnail) && !(sel.youtubeUrls?.length > 0 || sel.youtubeUrl) && (
-                    <div className="mb-4 flex justify-center relative">
+                  {/* YouTube動画がない場合にサムネイル画像を表示 */}
+                  {sel.thumbnail && !(sel.youtubeUrls?.length > 0 || sel.youtubeUrl) && (
+                    <div className="mb-4 flex justify-center">
                       <img 
-                        src={autoThumbnail || sel.thumbnail} 
+                        src={sel.thumbnail} 
                         alt={sel.title} 
                         className="max-w-full max-h-80 object-contain rounded-lg shadow-md" 
                         style={{ imageRendering: '-webkit-optimize-contrast' }}
                         onError={(e) => e.target.style.display='none'} 
                       />
-                      {adminMode && autoThumbnail && (
-                        <span className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded shadow">
-                          自動取得
-                        </span>
-                      )}
                     </div>
                   )}
-                  {/* TMDBあらすじ（映画・ドラマ・アニメ） */}
-                  {tmdbInfo?.overview && (
-                    <div className="mb-4">
-                      <div className="text-sm text-gray-500 mb-2">あらすじ</div>
-                      <p className="text-gray-700">{tmdbInfo.overview}</p>
-                    </div>
-                  )}
-                  {/* 手動入力のひとことTips */}
-                  {sel.synopsis && <div className="mb-4"><div className="text-sm text-gray-500 mb-2">💡 ひとことTips</div><p className="text-gray-700">{sel.synopsis}</p></div>}
+                  {sel.synopsis && <div className="mb-4"><div className="text-sm text-gray-500 mb-2">あらすじ</div><p className="text-gray-700">{sel.synopsis}</p></div>}
                   {sel.description && <div className="mb-4"><div className="text-sm text-gray-500 mb-2">説明</div><p className="text-gray-700">{sel.description}</p></div>}
                   {/* トリビアの複数画像表示 */}
                   {sel.images?.length > 0 && (
@@ -2645,97 +2449,6 @@ const App = () => {
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
-                  {/* プラットフォーム情報（ゲームかつ英語タイトルがある場合のみ） */}
-                  {(sel.type === 'game' || (Array.isArray(sel.type) && sel.type.includes('game'))) && sel.englishTitle && (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                      {gameInfoLoading ? (
-                        <p className="text-gray-500 text-sm">プラットフォーム情報を取得中...</p>
-                      ) : gameInfo ? (
-                        <div className="space-y-2">
-                          {gameInfo.released && (
-                            <p className="text-sm">
-                              <span className="font-semibold">📅 初リリース日：</span>
-                              {formatReleaseDate(gameInfo.released)}
-                            </p>
-                          )}
-                          {gameInfo.platforms && gameInfo.platforms.length > 0 && (
-                            <p className="text-sm">
-                              <span className="font-semibold">🎮 プラットフォーム：</span>
-                              {gameInfo.platforms.join('、')}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-gray-400 text-sm">プラットフォーム情報が見つかりませんでした</p>
-                      )}
-                    </div>
-                  )}
-                  {/* TMDB情報（映画・ドラマ・アニメ） */}
-                  {(sel.type === 'movie' || sel.type === 'drama' || sel.type === 'anime' || 
-                    (Array.isArray(sel.type) && (sel.type.includes('movie') || sel.type.includes('drama') || sel.type.includes('anime')))) && (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                      {tmdbInfoLoading ? (
-                        <p className="text-gray-500 text-sm">作品情報を取得中...</p>
-                      ) : tmdbInfo ? (
-                        <div className="space-y-2">
-                          {/* 映画の場合 */}
-                          {tmdbInfo.mediaType === 'movie' && (
-                            <>
-                              {tmdbInfo.releaseDate && (
-                                <p className="text-sm">
-                                  <span className="font-semibold">📅 公開日：</span>
-                                  {formatMovieReleaseDate(tmdbInfo.releaseDate)}
-                                </p>
-                              )}
-                              {tmdbInfo.runtime && (
-                                <p className="text-sm">
-                                  <span className="font-semibold">⏱️ 上映時間：</span>
-                                  {formatRuntime(tmdbInfo.runtime)}
-                                </p>
-                              )}
-                              {tmdbInfo.director && (
-                                <p className="text-sm">
-                                  <span className="font-semibold">🎬 監督：</span>
-                                  {tmdbInfo.director}
-                                </p>
-                              )}
-                            </>
-                          )}
-                          {/* ドラマ・アニメの場合 */}
-                          {tmdbInfo.mediaType === 'tv' && (
-                            <>
-                              {tmdbInfo.firstAirDate && (
-                                <p className="text-sm">
-                                  <span className="font-semibold">📅 初回放送：</span>
-                                  {formatMovieReleaseDate(tmdbInfo.firstAirDate)}
-                                </p>
-                              )}
-                              {tmdbInfo.numberOfSeasons && (
-                                <p className="text-sm">
-                                  <span className="font-semibold">📺 シーズン数：</span>
-                                  {tmdbInfo.numberOfSeasons}シーズン（全{tmdbInfo.numberOfEpisodes}話）
-                                </p>
-                              )}
-                              {tmdbInfo.episodeRuntime && (
-                                <p className="text-sm">
-                                  <span className="font-semibold">⏱️ 1話あたり：</span>
-                                  約{tmdbInfo.episodeRuntime}分
-                                </p>
-                              )}
-                              {tmdbInfo.creator && (
-                                <p className="text-sm">
-                                  <span className="font-semibold">🎬 クリエイター：</span>
-                                  {tmdbInfo.creator}
-                                </p>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-gray-400 text-sm">作品情報が見つかりませんでした</p>
-                      )}
                     </div>
                   )}
                   {(adminMode || affiliateEnabled) && sel.links?.length > 0 && (() => {
@@ -2942,36 +2655,6 @@ const App = () => {
                     <p className="text-xs text-gray-500">例：第二次世界大戦関連の作品を「第二次世界大戦」グループ内に表示したい場合に選択</p>
                   </div>
                   <input value={cf.title} onChange={e => setCf(p => ({ ...p, title: e.target.value }))} placeholder="タイトル ※必須" className="w-full px-4 py-3 bg-white border rounded-lg" required />
-                  {/* 英語タイトル入力欄（ゲーム・映画・ドラマ・アニメカテゴリ選択時） */}
-                  {(cf.categories.includes('game') || cf.categories.includes('movie') || cf.categories.includes('drama') || cf.categories.includes('anime')) && (
-                    <div className="space-y-2">
-                      <input 
-                        value={cf.englishTitle} 
-                        onChange={e => setCf(p => ({ ...p, englishTitle: e.target.value }))} 
-                        placeholder={cf.categories.includes('game') 
-                          ? "英語タイトル（RAWG検索用）例: Assassin's Creed Odyssey" 
-                          : "英語タイトル（任意・TMDB検索精度向上用）例: Gladiator"} 
-                        className={`w-full px-4 py-3 bg-white border ${cf.categories.includes('game') ? 'border-yellow-300' : 'border-blue-300'} rounded-lg`} 
-                      />
-                      <p className={`text-xs ${cf.categories.includes('game') ? 'text-yellow-600' : 'text-blue-600'}`}>
-                        {cf.categories.includes('game') 
-                          ? '↑ 英語タイトルを入力すると、プラットフォーム・リリース日が自動表示されます'
-                          : '↑ 空欄でも日本語タイトルで検索します。見つからない場合は英語タイトルを入力してください'}
-                      </p>
-                    </div>
-                  )}
-                  {/* 監督名入力欄（映画カテゴリ選択時・任意） */}
-                  {cf.categories.includes('movie') && (
-                    <div className="space-y-2">
-                      <input 
-                        value={cf.searchDirector} 
-                        onChange={e => setCf(p => ({ ...p, searchDirector: e.target.value }))} 
-                        placeholder="監督名（任意・同名映画の絞り込み用）例: Ridley Scott" 
-                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg" 
-                      />
-                      <p className="text-xs text-gray-500">↑ 同名映画がある場合に入力すると、正しい作品を特定できます</p>
-                    </div>
-                  )}
                   <div className="space-y-2">
                     <input 
                       value={cf.year} 
@@ -2996,16 +2679,10 @@ const App = () => {
                     <input value={cf.periodRange} onChange={e => setCf(p => ({ ...p, periodRange: e.target.value }))} placeholder="大体の時期（例: 1904-1907）※任意" className="w-full px-4 py-3 bg-white border rounded-lg" />
                     <p className="text-xs text-gray-500">↑ 回想シーン等も含めた期間を入力（黒字で表示）</p>
                   </div>
-                  <textarea value={cf.synopsis} onChange={e => setCf(p => ({ ...p, synopsis: e.target.value }))} placeholder="💡 ひとことTips（任意）映画・ドラマ・アニメはTMDBからあらすじを自動取得します" className="w-full px-4 py-3 bg-white border rounded-lg h-24" />
+                  <textarea value={cf.synopsis} onChange={e => setCf(p => ({ ...p, synopsis: e.target.value }))} placeholder="あらすじ ※任意" className="w-full px-4 py-3 bg-white border rounded-lg h-24" />
                   <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-gray-700">
-                      🖼️ サムネイル画像URL（任意）
-                      <span className="text-xs text-green-600 font-normal ml-2">
-                        ※映画・ドラマ・アニメ・ゲームは保存時に自動取得
-                      </span>
-                    </label>
-                    <input value={cf.thumbnail} onChange={e => setCf(p => ({ ...p, thumbnail: e.target.value }))} placeholder="自動取得できない場合のみ入力（漫画など）" className="w-full px-4 py-3 bg-white border rounded-lg" />
-                    <p className="text-xs text-gray-500">↑ 漫画など自動取得できない場合は、Google検索で画像を右クリック →「画像アドレスをコピー」で取得</p>
+                    <input value={cf.thumbnail} onChange={e => setCf(p => ({ ...p, thumbnail: e.target.value }))} placeholder="サムネイル画像URL ※任意" className="w-full px-4 py-3 bg-white border rounded-lg" />
+                    <p className="text-xs text-gray-500">↑ Google検索で画像を右クリック →「画像アドレスをコピー」で取得</p>
                     {cf.thumbnail && (
                       <div className="flex items-center gap-2">
                         <img src={cf.thumbnail} alt="プレビュー" className="w-16 h-16 object-cover rounded border" onError={(e) => e.target.style.display='none'} />
