@@ -91,26 +91,57 @@ export const searchMovie = async (movieName, directorName = '') => {
 /**
  * TVシリーズ（ドラマ・アニメ）を検索して情報を取得
  * @param {string} tvName - 番組タイトル（日本語または英語）
+ * @param {string} searchHint - 検索補助キーワード（任意、原作者名など）
+ * @param {boolean} preferJapanese - 日本の作品を優先するか（アニメ用）
  * @returns {Promise<Object|null>} TV情報
  */
-export const searchTV = async (tvName) => {
+export const searchTV = async (tvName, searchHint = '', preferJapanese = false) => {
   if (!TMDB_API_KEY) {
     console.error('TMDB API key is not set');
     return null;
   }
 
   try {
+    // 検索クエリを構築（補助キーワードがあれば追加）
+    const searchQuery = searchHint ? `${tvName} ${searchHint}` : tvName;
+    
     // TVシリーズを検索
-    const searchUrl = `${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(tvName)}&language=ja-JP`;
+    const searchUrl = `${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchQuery)}&language=ja-JP`;
     const searchResponse = await fetch(searchUrl);
     const searchData = await searchResponse.json();
 
     if (!searchData.results || searchData.results.length === 0) {
-      console.log('TV series not found:', tvName);
-      return null;
+      // 補助キーワードで見つからなければ、タイトルのみで再検索
+      if (searchHint) {
+        console.log('Retrying without search hint...');
+        const retryUrl = `${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(tvName)}&language=ja-JP`;
+        const retryResponse = await fetch(retryUrl);
+        const retryData = await retryResponse.json();
+        
+        if (!retryData.results || retryData.results.length === 0) {
+          console.log('TV series not found:', tvName);
+          return null;
+        }
+        searchData.results = retryData.results;
+      } else {
+        console.log('TV series not found:', tvName);
+        return null;
+      }
     }
 
-    const tv = searchData.results[0];
+    let tv = searchData.results[0];
+    
+    // 日本の作品を優先する場合（アニメ用）
+    if (preferJapanese && searchData.results.length > 1) {
+      // origin_country に 'JP' が含まれる作品を探す
+      const japaneseShow = searchData.results.find(result => 
+        result.origin_country?.includes('JP')
+      );
+      if (japaneseShow) {
+        tv = japaneseShow;
+        console.log('Found Japanese show:', japaneseShow.name);
+      }
+    }
 
     // 詳細情報を取得
     const detailUrl = `${TMDB_BASE_URL}/tv/${tv.id}?api_key=${TMDB_API_KEY}&language=ja-JP`;

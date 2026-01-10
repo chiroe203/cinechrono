@@ -148,7 +148,7 @@ const App = () => {
     return null;
   };
   
-  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
+  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
   const [ef, setEf] = useState({ eventType: 'war', historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', year: '', desc: '', detail: '', topic: { title: '', url: '' } });
   const [sf, setSf] = useState({ mainEra: 'modern', subEra: '', subEraType: 'normal', subEraYears: '', parentSubEra: '', historyCategories: ['world'], desc: '', detail: '' });
   const [tf, setTf] = useState({ title: '', year: '', mainEra: 'modern', historyCategories: ['world'], description: '', images: [''] }); // トリビア用フォーム
@@ -275,7 +275,7 @@ const App = () => {
   const [tmdbInfoLoading, setTmdbInfoLoading] = useState(false);
   
   // TMDB情報取得関数（映画・ドラマ・アニメ対応）
-  const fetchTmdbInfo = async (title, englishTitle, categories, searchDirector = '') => {
+  const fetchTmdbInfo = async (title, englishTitle, categories, searchDirector = '', searchHint = '') => {
     // 検索するタイトル（英語タイトルがあればそちらを優先）
     const searchTitle = englishTitle || title;
     if (!searchTitle) {
@@ -301,8 +301,8 @@ const App = () => {
         // 映画検索
         info = await searchMovie(searchTitle, searchDirector);
       } else if (isDrama || isAnime) {
-        // ドラマ・アニメはTV検索
-        info = await searchTV(searchTitle);
+        // ドラマ・アニメはTV検索（アニメは日本作品を優先）
+        info = await searchTV(searchTitle, searchHint, isAnime);
       }
       
       setTmdbInfo(info);
@@ -322,7 +322,7 @@ const App = () => {
   useEffect(() => {
     if (sel && (sel.type === 'movie' || sel.type === 'drama' || sel.type === 'anime' || 
         (Array.isArray(sel.type) && (sel.type.includes('movie') || sel.type.includes('drama') || sel.type.includes('anime'))))) {
-      fetchTmdbInfo(sel.title, sel.englishTitle, sel.type, sel.searchDirector || '');
+      fetchTmdbInfo(sel.title, sel.englishTitle, sel.type, sel.searchDirector || '', sel.searchHint || '');
     } else {
       setTmdbInfo(null);
     }
@@ -676,7 +676,7 @@ const App = () => {
 
   // フォームリセット
   const resetContentForm = () => {
-    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
+    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
     setEditMode(false);
     setEditTarget(null);
   };
@@ -730,6 +730,7 @@ const App = () => {
       title: content.title,
       englishTitle: content.englishTitle || '',
       searchDirector: content.searchDirector || '',
+      searchHint: content.searchHint || '',
       mainEra: item.mainEra,
       subEra: item.subEra || '',
       subEraYears: item.subEraYears || '',
@@ -882,7 +883,8 @@ const App = () => {
                 autoFetchedThumbnail = movieData.posterUrl;
               }
             } else {
-              const tvData = await searchTV(searchTitle);
+              // ドラマ・アニメはTV検索（アニメは日本作品を優先）
+              const tvData = await searchTV(searchTitle, cf.searchHint || '', isAnime);
               if (tvData?.posterUrl) {
                 autoFetchedThumbnail = tvData.posterUrl;
               }
@@ -900,6 +902,7 @@ const App = () => {
       title: cf.title, 
       englishTitle: cf.englishTitle || '',
       searchDirector: cf.searchDirector || '',
+      searchHint: cf.searchHint || '',
       periodRange: cf.periodRange || '',
       parentSubEra: cf.parentSubEra || '',
       synopsis: cf.synopsis || '', 
@@ -2970,6 +2973,18 @@ const App = () => {
                         className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg" 
                       />
                       <p className="text-xs text-gray-500">↑ 同名映画がある場合に入力すると、正しい作品を特定できます</p>
+                    </div>
+                  )}
+                  {/* 検索補助キーワード入力欄（アニメ・ドラマカテゴリ選択時・任意） */}
+                  {(cf.categories.includes('anime') || cf.categories.includes('drama')) && (
+                    <div className="space-y-2">
+                      <input 
+                        value={cf.searchHint} 
+                        onChange={e => setCf(p => ({ ...p, searchHint: e.target.value }))} 
+                        placeholder="検索補助キーワード（任意）例: 原泰久、進撃の巨人 アニメ" 
+                        className="w-full px-4 py-3 bg-white border border-green-300 rounded-lg" 
+                      />
+                      <p className="text-xs text-green-600">↑ 同名作品がある場合に原作者名などを入力すると、正しい作品を特定できます（日本のアニメを優先検索します）</p>
                     </div>
                   )}
                   <div className="space-y-2">
