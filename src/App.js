@@ -2507,7 +2507,7 @@ const App = () => {
 
       {sel && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col my-4 sm:my-auto">
+          <div className="bg-white rounded-3xl max-w-lg lg:max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col my-4 sm:my-auto">
             <div className="flex-shrink-0 bg-white p-4 flex justify-between items-center border-b rounded-t-3xl">
               <h2 className="text-xl font-bold">{sel.type === 'history' ? eventIcon(sel.eventType).label : sel.type === 'subEra' ? subEraIcon(sel.subEraType).label : label(sel.type)}</h2>
               <div className="flex items-center gap-2">
