@@ -148,7 +148,7 @@ const App = () => {
     return null;
   };
   
-  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
+  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingType: 'past' });
   const [ef, setEf] = useState({ eventType: 'war', historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', year: '', desc: '', detail: '', topic: { title: '', url: '' } });
   const [sf, setSf] = useState({ mainEra: 'modern', subEra: '', subEraType: 'normal', subEraYears: '', parentSubEra: '', historyCategories: ['world'], desc: '', detail: '' });
   const [tf, setTf] = useState({ title: '', year: '', mainEra: 'modern', historyCategories: ['world'], description: '', images: [''] }); // トリビア用フォーム
@@ -201,6 +201,10 @@ const App = () => {
   const [adminSubEraFilter, setAdminSubEraFilter] = useState('all');
   const [adminTriviaFilter, setAdminTriviaFilter] = useState('all');
   const [triviaSort, setTriviaSort] = useState('year');
+  
+  // 時代設定フィルター用State
+  const [settingTypeFilter, setSettingTypeFilter] = useState('all'); // 'all', 'contemporary', 'past', 'future'
+  const [showSettingFilter, setShowSettingFilter] = useState(false);
   
   // ゲームプラットフォーム情報用State
   const [gameInfo, setGameInfo] = useState(null);
@@ -676,7 +680,7 @@ const App = () => {
 
   // フォームリセット
   const resetContentForm = () => {
-    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' } });
+    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingType: 'past' });
     setEditMode(false);
     setEditTarget(null);
   };
@@ -747,7 +751,8 @@ const App = () => {
         url: l.url || '',
         customName: l.customName || ''
       })) : [{ category: 'book', service: '', platform: '', url: '', customName: '' }],
-      topic: content.topic || { title: '', url: '' }
+      topic: content.topic || { title: '', url: '' },
+      settingType: content.settingType || 'past'
     });
     setEditMode(true);
     setEditTarget({ itemId, type: 'content', idx });
@@ -909,7 +914,8 @@ const App = () => {
       thumbnail: cf.thumbnail || autoFetchedThumbnail || '',
       youtubeUrls: cf.youtubeUrls.filter(url => url.trim() !== ''),
       links: cf.links.filter(l => l.url), 
-      topic: cf.topic.title && cf.topic.url ? cf.topic : null 
+      topic: cf.topic.title && cf.topic.url ? cf.topic : null,
+      settingType: cf.settingType || 'past'
     };
     
     try {
@@ -1670,6 +1676,56 @@ const App = () => {
                   </>
                 )}
               </div>
+              {/* 時代設定フィルター */}
+              <div className="relative">
+                <button 
+                  onClick={() => setShowSettingFilter(!showSettingFilter)}
+                  className={`p-2 rounded-lg transition-all ${settingTypeFilter === 'all' ? 'hover:bg-gray-100 text-gray-600' : 'bg-purple-100 text-purple-700'}`}
+                  title="時代設定で絞り込み"
+                >
+                  <Clock className="w-5 h-5" />
+                </button>
+                {showSettingFilter && (
+                  <>
+                    {/* 背景のオーバーレイ */}
+                    <div className="fixed inset-0 z-40" onClick={() => setShowSettingFilter(false)} />
+                    {/* フィルターメニュー */}
+                    <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-xl border p-4 z-50 min-w-[220px]">
+                      <div className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        時代設定で絞り込み
+                      </div>
+                      <div className="space-y-2">
+                        {[
+                          { id: 'all', label: '🌐 すべて' },
+                          { id: 'contemporary', label: '⬇️ 制作当時が舞台' },
+                          { id: 'past', label: '⏪ 過去が舞台' },
+                          { id: 'future', label: '⏩ 未来が舞台' }
+                        ].map(opt => (
+                          <label key={opt.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded p-2 -mx-2">
+                            <input
+                              type="radio"
+                              name="settingTypeFilter"
+                              checked={settingTypeFilter === opt.id}
+                              onChange={() => setSettingTypeFilter(opt.id)}
+                              className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                            />
+                            <span className="text-sm">{opt.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="mt-3 pt-3 border-t">
+                        <button 
+                          onClick={() => setShowSettingFilter(false)}
+                          className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-bold text-sm hover:from-purple-700 hover:to-pink-700"
+                        >
+                          閉じる
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
           <button onClick={() => setMenu(!menu)} className="p-2 hover:bg-gray-100 rounded-lg"><Menu className="w-6 h-6" /></button>
@@ -1712,6 +1768,18 @@ const App = () => {
                   // コンテンツのカテゴリー（type）のうち、少なくとも1つが選択されているかチェック
                   const contentTypes = Array.isArray(content.type) ? content.type : [content.type];
                   return contentTypes.some(t => categoryFilter[t]);
+                };
+                
+                // 時代設定フィルター関数（コンテンツ専用）
+                const passesSettingTypeFilter = (content) => {
+                  // typeプロパティがない場合（イベントなど）は通過
+                  if (!content.type) return true;
+                  // トリビアは通過
+                  if (content.type === 'trivia') return true;
+                  // すべて選択されている場合は通過
+                  if (settingTypeFilter === 'all') return true;
+                  // settingTypeが一致するかチェック
+                  return content.settingType === settingTypeFilter;
                 };
                 
                 // 全データから時代区分グループを構築（大区分をまたいで参照可能に）
@@ -1771,7 +1839,7 @@ const App = () => {
                 // アイテムを時代区分グループに追加（parentSubEraを持つコンテンツは別途処理、フィルター適用）
                 eraData.forEach(item => {
                   // フィルターを通過したコンテンツとイベントのみ
-                  const filteredContent = (item.content || []).filter(c => passesFilter(c) && passesCategoryFilter(c));
+                  const filteredContent = (item.content || []).filter(c => passesFilter(c) && passesCategoryFilter(c) && passesSettingTypeFilter(c));
                   const filteredEvents = (item.events || []).filter(ev => passesFilter(ev));
                   
                   const hasContent = filteredContent.length > 0;
@@ -2080,10 +2148,8 @@ const App = () => {
                                   <div key={originalIdx} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: originalIdx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2">
-                                        {icons.map((ic, idx) => {
-                                          const IconComp = ic.icon;
-                                          return <IconComp key={idx} className={`w-4 h-4 ${ic.color}`} />;
-                                        })}
+                                        {c.settingType === 'past' && <span className="text-base">⏪</span>}
+                                        {c.settingType === 'future' && <span className="text-base">⏩</span>}
                                         <span className={`font-bold ${s.txt}`}>{c.title}</span>
                                       </div>
                                       <div className="text-sm text-gray-600 mt-1">{label(c.type)}</div>
@@ -2103,7 +2169,6 @@ const App = () => {
                           {/* 親時代区分を持つコンテンツ（子時代区分より前に表示） */}
                           {ti.childContents?.map((pc, pcIdx) => {
                             const s = style(pc.content.type);
-                            const icons = getTypeIcons(pc.content.type);
                             const displayPeriod = pc.content.periodRange || '';
                             // 年号がある場合のみ、前のchildContentと異なれば年号ラベルを表示
                             const prevPc = pcIdx > 0 ? ti.childContents[pcIdx - 1] : null;
@@ -2114,10 +2179,8 @@ const App = () => {
                                 <div onClick={() => { setVideoIndex(0); setSel({ ...pc.content, year: pc.year, itemId: pc.item.id, idx: pc.idx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
-                                      {icons.map((ic, idx) => {
-                                        const IconComp = ic.icon;
-                                        return <IconComp key={idx} className={`w-4 h-4 ${ic.color}`} />;
-                                      })}
+                                      {pc.content.settingType === 'past' && <span className="text-base">⏪</span>}
+                                      {pc.content.settingType === 'future' && <span className="text-base">⏩</span>}
                                       <span className={`font-bold ${s.txt}`}>{pc.content.title}</span>
                                     </div>
                                     <div className="text-sm text-gray-600 mt-1">{label(pc.content.type)}</div>
@@ -2178,17 +2241,14 @@ const App = () => {
                                     {showYearLabel && <div className="text-lg font-bold text-purple-600 mb-2">{item.year}</div>}
                                     {item.content?.map((c, i) => {
                                       const s = style(c.type);
-                                      const icons = getTypeIcons(c.type);
                                       const displayPeriod = c.periodRange || '';
                                       const originalIdx = c._originalIdx !== undefined ? c._originalIdx : i;
                                       return (
                                         <div key={originalIdx} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: originalIdx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
                                           <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
-                                              {icons.map((ic, idx) => {
-                                                const IconComp = ic.icon;
-                                                return <IconComp key={idx} className={`w-4 h-4 ${ic.color}`} />;
-                                              })}
+                                              {c.settingType === 'past' && <span className="text-base">⏪</span>}
+                                              {c.settingType === 'future' && <span className="text-base">⏩</span>}
                                               <span className={`font-bold ${s.txt}`}>{c.title}</span>
                                             </div>
                                             <div className="text-sm text-gray-600 mt-1">{label(c.type)}</div>
@@ -2239,7 +2299,6 @@ const App = () => {
                           })()}
                           {item.content?.map((c, i) => {
                             const s = style(c.type);
-                            const icons = getTypeIcons(c.type);
                             const displayPeriod = c.periodRange || '';
                             const originalIdx = c._originalIdx !== undefined ? c._originalIdx : i;
                             
@@ -2266,10 +2325,8 @@ const App = () => {
                               <div key={originalIdx} onClick={() => { setVideoIndex(0); setSel({ ...c, year: item.year, itemId: item.id, idx: originalIdx }); }} className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
-                                    {icons.map((ic, idx) => {
-                                      const IconComp = ic.icon;
-                                      return <IconComp key={idx} className={`w-4 h-4 ${ic.color}`} />;
-                                    })}
+                                    {c.settingType === 'past' && <span className="text-base">⏪</span>}
+                                    {c.settingType === 'future' && <span className="text-base">⏩</span>}
                                     <span className={`font-bold ${s.txt}`}>{c.title}</span>
                                   </div>
                                   <div className="text-sm text-gray-600 mt-1">{label(c.type)}</div>
@@ -2929,6 +2986,29 @@ const App = () => {
                         </label>
                       ))}
                     </div>
+                  </div>
+                  {/* 時代設定タイプ */}
+                  <div className="bg-white border rounded-lg p-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">⏱️ 時代設定</label>
+                    <div className="flex flex-wrap gap-4">
+                      {[
+                        { id: 'past', label: '⏪ 過去が舞台', desc: '制作時点から見て過去を描いた作品' },
+                        { id: 'contemporary', label: '⬇️ 制作当時が舞台', desc: '制作時点での現代を描いた作品' },
+                        { id: 'future', label: '⏩ 未来が舞台', desc: '制作時点から見て未来を描いた作品' }
+                      ].map(opt => (
+                        <label key={opt.id} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="settingType"
+                            checked={cf.settingType === opt.id}
+                            onChange={() => setCf(p => ({ ...p, settingType: opt.id }))}
+                            className="w-5 h-5"
+                          />
+                          <span className="font-medium text-gray-700">{opt.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">※ 作品が描いている時代と制作年の関係を選択</p>
                   </div>
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700">🔗 親となる時代区分（任意）</label>
