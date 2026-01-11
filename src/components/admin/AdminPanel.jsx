@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Settings, Pencil, Loader2, ToggleLeft, ToggleRight, Lightbulb, RefreshCw, CheckSquare, Square } from 'lucide-react';
 import { eras, linkServices, gamePlatforms } from '../../constants';
 import { parseYear, detectMainEra, getHistoryCategories, hasHistoryCategory, getLabel, getSubEraIcon } from '../../utils';
@@ -56,7 +56,9 @@ const AdminPanel = ({
   contentFormRef,
   // ゲームあらすじ一括更新
   onBulkUpdateGameSynopsis,
-  bulkUpdateProgress
+  bulkUpdateProgress,
+  // ゲーム初期選択
+  initialSelectedGame
 }) => {
   if (!show) return null;
 
@@ -143,6 +145,7 @@ const AdminPanel = ({
               label={label}
               onBulkUpdateGameSynopsis={onBulkUpdateGameSynopsis}
               bulkUpdateProgress={bulkUpdateProgress}
+              initialSelectedGame={initialSelectedGame}
             />
           )}
 
@@ -210,7 +213,8 @@ const ContentForm = ({
   contentFormRef,
   label,
   onBulkUpdateGameSynopsis,
-  bulkUpdateProgress
+  bulkUpdateProgress,
+  initialSelectedGame
 }) => {
   return (
     <form ref={contentFormRef} onSubmit={onSubmit} className="bg-gray-50 rounded-lg p-6 border space-y-4">
@@ -437,6 +441,24 @@ const ContentForm = ({
         <p className="text-xs text-gray-500">↑ 回想シーン等も含めた期間を入力（黒字で表示）</p>
       </div>
 
+      {/* ゲームあらすじ（翻訳済み） - ゲームの場合のみ表示 */}
+      {cf.categories.includes('game') && (
+        <div className="space-y-2 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <label className="block text-sm font-semibold text-gray-700">
+            🎮 ゲームあらすじ（RAWG+DeepL翻訳）
+          </label>
+          <textarea 
+            value={cf.translatedDescription || ''} 
+            onChange={e => setCf(p => ({ ...p, translatedDescription: e.target.value }))} 
+            placeholder="RAWGから取得したあらすじがここに表示されます。手動で編集も可能です。" 
+            className="w-full px-4 py-3 bg-white border rounded-lg h-32" 
+          />
+          <p className="text-xs text-gray-500">
+            ※一括更新または詳細画面の「あらすじを取得」ボタンで自動取得できます
+          </p>
+        </div>
+      )}
+
       {/* ひとことTips */}
       <textarea 
         value={cf.synopsis} 
@@ -644,6 +666,7 @@ const ContentForm = ({
         label={label}
         onBulkUpdateGameSynopsis={onBulkUpdateGameSynopsis}
         bulkUpdateProgress={bulkUpdateProgress}
+        initialSelectedGame={initialSelectedGame}
       />
     </form>
   );
@@ -662,11 +685,19 @@ const ContentList = ({
   deleteContent,
   label,
   onBulkUpdateGameSynopsis,
-  bulkUpdateProgress
+  bulkUpdateProgress,
+  initialSelectedGame
 }) => {
   // ゲーム選択用state
   const [selectedGames, setSelectedGames] = useState([]);
   const [showGamesOnly, setShowGamesOnly] = useState(false);
+
+  // 初期選択ゲームがある場合に設定
+  useEffect(() => {
+    if (initialSelectedGame) {
+      setSelectedGames([initialSelectedGame]);
+    }
+  }, [initialSelectedGame]);
 
   // コンテンツを抽出（トリビアは除外）
   const allContent = sortedData.flatMap(item => 
@@ -705,12 +736,15 @@ const ContentList = ({
     return types.includes('game');
   });
 
-  // 全選択/解除
+  // あらすじなしのゲームのみ抽出
+  const gamesWithoutSynopsis = games.filter(({ content: c }) => !c.translatedDescription);
+
+  // 全選択/解除（あらすじなしのみ）
   const toggleSelectAll = () => {
-    if (selectedGames.length === games.length) {
+    if (selectedGames.length === gamesWithoutSynopsis.length && gamesWithoutSynopsis.length > 0) {
       setSelectedGames([]);
     } else {
-      setSelectedGames(games.map(({ item, idx }) => `${item.id}-${idx}`));
+      setSelectedGames(gamesWithoutSynopsis.map(({ item, idx }) => `${item.id}-${idx}`));
     }
   };
 
@@ -774,23 +808,28 @@ const ContentList = ({
           </button>
         </div>
         
-        {games.length > 0 && (
+        {gamesWithoutSynopsis.length > 0 && (
           <div className="flex items-center gap-3 mb-3">
             <button
               type="button"
               onClick={toggleSelectAll}
               className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800"
             >
-              {selectedGames.length === games.length ? (
+              {selectedGames.length === gamesWithoutSynopsis.length ? (
                 <CheckSquare className="w-4 h-4 text-yellow-600" />
               ) : (
                 <Square className="w-4 h-4" />
               )}
-              全選択 ({games.length}件)
+              あらすじなしを全選択 ({gamesWithoutSynopsis.length}件)
             </button>
             <span className="text-sm text-gray-500">
               選択中: {selectedGames.length}件
             </span>
+          </div>
+        )}
+        {gamesWithoutSynopsis.length === 0 && games.length > 0 && (
+          <div className="text-sm text-green-600 mb-3">
+            ✅ すべてのゲームにあらすじが登録されています
           </div>
         )}
 
@@ -834,7 +873,7 @@ const ContentList = ({
           className="w-full py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-lg font-semibold disabled:opacity-50 hover:from-yellow-600 hover:to-orange-600 flex items-center justify-center gap-2"
         >
           <RefreshCw className="w-4 h-4" />
-          選択したゲームのあらすじを更新 ({selectedGames.length}件)
+          あらすじなしのゲームを一括取得 ({selectedGames.length}件)
         </button>
         <p className="text-xs text-gray-500 mt-2">
           ※RAWGから英語あらすじを取得し、DeepLで日本語に翻訳してFirestoreに保存します

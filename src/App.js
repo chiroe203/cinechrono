@@ -54,6 +54,9 @@ const App = () => {
   // ゲームあらすじ一括更新用state
   const [bulkUpdateProgress, setBulkUpdateProgress] = useState(null);
   
+  // ゲーム初期選択用state（詳細モーダルから編集画面を開いた時に使用）
+  const [initialSelectedGame, setInitialSelectedGame] = useState(null);
+  
   // フォームへのスクロール用ref
   const contentFormRef = useRef(null);
   const eventFormRef = useRef(null);
@@ -62,7 +65,7 @@ const App = () => {
   // data, sortedData, existingYears はuseTimelineDataからインポート
 
 
-  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', releaseYear: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingTypes: ['past'] });
+  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', releaseYear: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', translatedDescription: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingTypes: ['past'] });
   const [ef, setEf] = useState({ eventType: 'war', historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', year: '', desc: '', detail: '', topic: { title: '', url: '' } });
   const [sf, setSf] = useState({ mainEra: 'modern', subEra: '', subEraType: 'normal', subEraYears: '', parentSubEra: '', historyCategories: ['world'], desc: '', detail: '' });
   const [tf, setTf] = useState({ title: '', year: '', mainEra: 'modern', historyCategories: ['world'], description: '', images: [''] }); // トリビア用フォーム
@@ -285,9 +288,10 @@ const App = () => {
 
   // フォームリセット
   const resetContentForm = () => {
-    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', releaseYear: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingTypes: ['past'] });
+    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', releaseYear: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', translatedDescription: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingTypes: ['past'] });
     setEditMode(false);
     setEditTarget(null);
+    setInitialSelectedGame(null);  // 初期選択もリセット
   };
 
   const resetEventForm = () => {
@@ -358,11 +362,20 @@ const App = () => {
         customName: l.customName || ''
       })) : [{ category: 'book', service: '', platform: '', url: '', customName: '' }],
       topic: content.topic || { title: '', url: '' },
-      settingTypes: content.settingTypes || (content.settingType ? [content.settingType] : ['past'])
+      settingTypes: content.settingTypes || (content.settingType ? [content.settingType] : ['past']),
+      translatedDescription: content.translatedDescription || ''
     });
     setEditMode(true);
     setEditTarget({ itemId, type: 'content', idx });
     setTab('content');
+    
+    // ゲームの場合、initialSelectedGameを設定
+    const types = Array.isArray(content.type) ? content.type : [content.type || 'movie'];
+    if (types.includes('game')) {
+      setInitialSelectedGame(`${itemId}-${idx}`);
+    } else {
+      setInitialSelectedGame(null);
+    }
     
     // フォームにスクロール
     setTimeout(() => {
@@ -518,6 +531,7 @@ const App = () => {
       periodRange: cf.periodRange || '',
       parentSubEra: cf.parentSubEra || '',
       synopsis: cf.synopsis || '', 
+      translatedDescription: cf.translatedDescription || '',
       thumbnail: cf.thumbnail || autoFetchedThumbnail || '',
       youtubeUrls: cf.youtubeUrls.filter(url => url.trim() !== ''),
       links: cf.links.filter(l => l.url), 
@@ -1493,6 +1507,7 @@ const App = () => {
         contentFormRef={contentFormRef}
         onBulkUpdateGameSynopsis={bulkUpdateGameSynopsis}
         bulkUpdateProgress={bulkUpdateProgress}
+        initialSelectedGame={initialSelectedGame}
       />
 
       <LoginModal
