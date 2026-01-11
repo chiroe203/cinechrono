@@ -12,42 +12,70 @@ const POSTER_SIZE = 'w500';
 /**
  * 映画を検索して情報を取得
  * @param {string} movieName - 映画タイトル（日本語または英語）
- * @param {string} directorName - 監督名（任意、同名映画の絞り込み用）
+ * @param {string} personHint - 監督名または俳優名（任意、同名映画の絞り込み用）
+ * @param {string} releaseYear - 公開年（任意、同名映画の絞り込み用）例: "2010"
  * @returns {Promise<Object|null>} 映画情報
  */
-export const searchMovie = async (movieName, directorName = '') => {
+export const searchMovie = async (movieName, personHint = '', releaseYear = '') => {
   if (!TMDB_API_KEY) {
     console.error('TMDB API key is not set');
     return null;
   }
 
   try {
-    // 映画を検索
-    const searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(movieName)}&language=ja-JP`;
+    // 検索URLを構築（公開年がある場合はパラメータ追加）
+    let searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(movieName)}&language=ja-JP`;
+    
+    // 公開年が指定されている場合はパラメータ追加（APIで絞り込み）
+    if (releaseYear && /^\d{4}$/.test(releaseYear)) {
+      searchUrl += `&primary_release_year=${releaseYear}`;
+    }
+    
     const searchResponse = await fetch(searchUrl);
     const searchData = await searchResponse.json();
 
     if (!searchData.results || searchData.results.length === 0) {
-      console.log('Movie not found:', movieName);
-      return null;
+      // 公開年で見つからない場合は、公開年なしで再検索
+      if (releaseYear) {
+        console.log('Retrying without release year...');
+        const retryUrl = `${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(movieName)}&language=ja-JP`;
+        const retryResponse = await fetch(retryUrl);
+        const retryData = await retryResponse.json();
+        
+        if (!retryData.results || retryData.results.length === 0) {
+          console.log('Movie not found:', movieName);
+          return null;
+        }
+        searchData.results = retryData.results;
+      } else {
+        console.log('Movie not found:', movieName);
+        return null;
+      }
     }
 
     let movie = searchData.results[0];
 
-    // 監督名が指定されている場合は絞り込み
-    if (directorName) {
+    // 監督名/俳優名が指定されている場合は絞り込み
+    if (personHint) {
       for (const result of searchData.results) {
         const creditsUrl = `${TMDB_BASE_URL}/movie/${result.id}/credits?api_key=${TMDB_API_KEY}`;
         const creditsResponse = await fetch(creditsUrl);
         const creditsData = await creditsResponse.json();
         
+        // 監督で検索
         const director = creditsData.crew?.find(
           person => person.job === 'Director' && 
-          person.name.toLowerCase().includes(directorName.toLowerCase())
+          person.name.toLowerCase().includes(personHint.toLowerCase())
         );
         
-        if (director) {
+        // メインキャスト（上位5名）で検索
+        const mainCast = creditsData.cast?.slice(0, 5).find(
+          person => person.name.toLowerCase().includes(personHint.toLowerCase())
+        );
+        
+        if (director || mainCast) {
           movie = result;
+          console.log(`Found movie by ${director ? 'director' : 'cast'}: ${personHint}`);
           break;
         }
       }

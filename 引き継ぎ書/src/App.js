@@ -58,7 +58,7 @@ const App = () => {
   // data, sortedData, existingYears はuseTimelineDataからインポート
 
 
-  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', releaseYear: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingTypes: ['past'] });
+  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingTypes: ['past'] });
   const [ef, setEf] = useState({ eventType: 'war', historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', year: '', desc: '', detail: '', topic: { title: '', url: '' } });
   const [sf, setSf] = useState({ mainEra: 'modern', subEra: '', subEraType: 'normal', subEraYears: '', parentSubEra: '', historyCategories: ['world'], desc: '', detail: '' });
   const [tf, setTf] = useState({ title: '', year: '', mainEra: 'modern', historyCategories: ['world'], description: '', images: [''] }); // トリビア用フォーム
@@ -187,7 +187,7 @@ const App = () => {
 
   // フォームリセット
   const resetContentForm = () => {
-    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', releaseYear: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingTypes: ['past'] });
+    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingTypes: ['past'] });
     setEditMode(false);
     setEditTarget(null);
   };
@@ -242,7 +242,6 @@ const App = () => {
       englishTitle: content.englishTitle || '',
       searchDirector: content.searchDirector || '',
       searchHint: content.searchHint || '',
-      releaseYear: content.releaseYear || '',
       mainEra: item.mainEra,
       subEra: item.subEra || '',
       subEraYears: item.subEraYears || '',
@@ -391,7 +390,7 @@ const App = () => {
           const searchTitle = cf.englishTitle || cf.title;
           if (searchTitle) {
             if (isMovie) {
-              const movieData = await searchMovie(searchTitle, cf.searchDirector || '', cf.releaseYear || '');
+              const movieData = await searchMovie(searchTitle, cf.searchDirector || '');
               if (movieData?.posterUrl) {
                 autoFetchedThumbnail = movieData.posterUrl;
               }
@@ -416,7 +415,6 @@ const App = () => {
       englishTitle: cf.englishTitle || '',
       searchDirector: cf.searchDirector || '',
       searchHint: cf.searchHint || '',
-      releaseYear: cf.releaseYear || '',
       periodRange: cf.periodRange || '',
       parentSubEra: cf.parentSubEra || '',
       synopsis: cf.synopsis || '', 
