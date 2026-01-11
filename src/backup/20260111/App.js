@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Film, X, Gamepad2, BookMarked, Settings, Clock, Menu, ExternalLink, LogOut, Loader2, Pencil, Swords, ScrollText, MapPin, ChevronLeft, ChevronRight, Tv, Skull, AlertCircle, ToggleLeft, ToggleRight, Filter, Lightbulb } from 'lucide-react';
-import { db, addTimelineItem, deleteTimelineItem, loginAdmin, logoutAdmin } from './firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { db, auth, fetchTimelineData, addTimelineItem, deleteTimelineItem, loginAdmin, logoutAdmin } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import Articles from './pages/Articles';
 import { searchGame, formatReleaseDate } from './libs/rawg';
 import { searchMovie, searchTV, formatMovieReleaseDate, formatRuntime } from './libs/tmdb';
-import { eras, linkServices, getServiceInfo, gamePlatforms, defaultCategoryFilter } from './constants';
-import { parseYear, getCentury, detectMainEra, getHistoryCategories, hasHistoryCategory } from './utils';
-import { useAuth, useMediaInfo, useSettings, useTimelineData } from './hooks';
 
 const App = () => {
   const location = useLocation();
@@ -23,20 +21,20 @@ const App = () => {
   const [sel, setSel] = useState(null);
   const [activeEra, setActiveEra] = useState(null);
 
-  // カスタムフックを使用
-  const { currentUser, adminMode, setAdminMode } = useAuth();
-  const { affiliateEnabled, toggleAffiliate } = useSettings();
-  const { data, setData, sortedData, existingYears, loading } = useTimelineData();
-  const { gameInfo, gameInfoLoading, tmdbInfo, tmdbInfoLoading, autoThumbnail } = useMediaInfo(sel);
-
   const [admin, setAdmin] = useState(false);
   const [tab, setTab] = useState('content');
   const [menu, setMenu] = useState(false);
+  const [adminMode, setAdminMode] = useState(false);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+  
+  // アフィリエイト表示設定
+  const [affiliateEnabled, setAffiliateEnabled] = useState(false);
   
   // 編集モード用state
   const [editMode, setEditMode] = useState(false);
@@ -49,10 +47,107 @@ const App = () => {
   const contentFormRef = useRef(null);
   const eventFormRef = useRef(null);
   
-  // eras, linkServices, gamePlatforms はconstantsからインポート
-  // data, sortedData, existingYears はuseTimelineDataからインポート
+  // サンプルデータ
+  const sampleData = [
+    { 
+      id: 'sample1',
+      mainEra: 'ancient', 
+      subEra: 'ローマ帝国', 
+      subEraYears: '紀元前27-476年', 
+      year: '180年', 
+      events: [{ type: 'history', eventType: 'other', title: 'カエサル暗殺', desc: 'ユリウス・カエサルが元老院で暗殺される', detail: 'ユリウス・カエサルは紀元前44年3月15日、ローマ元老院にて暗殺された。', topic: { title: 'ローマ帝国の栄光と滅亡を描く作品たち', url: 'https://note.com/cinechrono/n/xxxxx' } }], 
+      content: [{ type: 'movie', title: 'グラディエーター', periodRange: '180年頃', synopsis: 'ローマ帝国の将軍マキシマスが、皇帝に裏切られ奴隷剣闘士となり、復讐を誓う', links: [{ service: 'Amazon Prime', url: 'https://amazon.co.jp' }], topic: { title: 'ローマ帝国の栄光と滅亡を描く作品たち', url: 'https://note.com/cinechrono/n/xxxxx' } }] 
+    }
+  ];
 
+  const [data, setData] = useState([]);
 
+  const eras = [
+    { id: 'ancient', name: '古代', year: '〜500' }, 
+    { id: 'medieval', name: '中世', year: '501-1500' }, 
+    { id: 'early-modern', name: '近世', year: '1501-1800' }, 
+    { id: 'modern', name: '近代', year: '1801-1945' }, 
+    { id: 'contemporary', name: '現代', year: '1945-' }
+  ];
+
+  // アフィリエイトリンクのサービス定義（表示順: 電子書籍→配信→購入→ゲーム→その他）
+  const linkServices = {
+    book: {
+      label: '📚 電子書籍で読む',
+      buttonText: 'で読む',
+      order: 1,
+      services: [
+        { id: 'kindle', name: 'Kindle', icon: '📖', color: 'from-orange-500 to-orange-600' },
+        { id: 'rakuten_kobo', name: '楽天Kobo', icon: '📖', color: 'from-red-600 to-red-700' },
+        { id: 'booklive', name: 'BookLive!', icon: '📖', color: 'from-orange-600 to-red-500' },
+        { id: 'cmoa', name: 'コミックシーモア', icon: '📖', color: 'from-amber-500 to-orange-500' },
+        { id: 'dmm_books', name: 'DMMブックス', icon: '📖', color: 'from-pink-500 to-red-500' },
+        { id: 'renta', name: 'Renta!', icon: '📖', color: 'from-lime-500 to-green-500' },
+      ]
+    },
+    watch: {
+      label: '📺 視聴する',
+      buttonText: 'で見る',
+      order: 2,
+      services: [
+        { id: 'amazon_prime', name: 'Amazon Prime Video', icon: '▶️', color: 'from-cyan-600 to-cyan-800' },
+        { id: 'netflix', name: 'Netflix', icon: '▶️', color: 'from-red-600 to-red-800' },
+        { id: 'unext', name: 'U-NEXT', icon: '▶️', color: 'from-slate-700 to-slate-900' },
+        { id: 'hulu', name: 'Hulu', icon: '▶️', color: 'from-emerald-500 to-emerald-700' },
+        { id: 'disney', name: 'Disney+', icon: '▶️', color: 'from-blue-700 to-indigo-900' },
+      ]
+    },
+    buy: {
+      label: '🛒 購入する',
+      buttonText: 'で買う',
+      order: 3,
+      services: [
+        { id: 'amazon', name: 'Amazon', icon: '🛒', color: 'from-teal-600 to-teal-800' },
+        { id: 'rakuten', name: '楽天市場', icon: '🛒', color: 'from-red-700 to-red-900' },
+        { id: 'yahoo', name: 'Yahoo!ショッピング', icon: '🛒', color: 'from-orange-500 to-orange-700' },
+      ]
+    },
+    game: {
+      label: '🎮 ゲームを入手',
+      buttonText: 'で入手',
+      order: 4,
+      services: [
+        { id: 'psstore', name: 'PlayStation Store', icon: '🎮', color: 'from-blue-600 to-blue-800' },
+        { id: 'nintendo', name: 'Nintendo eShop', icon: '🎮', color: 'from-red-500 to-red-700' },
+        { id: 'steam', name: 'Steam', icon: '🎮', color: 'from-gray-700 to-gray-900' },
+        { id: 'xbox', name: 'Xbox Store', icon: '🎮', color: 'from-green-600 to-green-800' },
+        { id: 'amazon_game', name: 'Amazon（パッケージ版）', icon: '🛒', color: 'from-teal-600 to-teal-800' },
+      ]
+    },
+    other: {
+      label: '🔗 その他',
+      buttonText: 'で見る',
+      order: 5,
+      services: []
+    }
+  };
+
+  const gamePlatforms = [
+    { id: 'ps5', name: 'PS5' },
+    { id: 'ps4', name: 'PS4' },
+    { id: 'switch', name: 'Nintendo Switch' },
+    { id: 'pc', name: 'PC' },
+    { id: 'xbox', name: 'Xbox' },
+  ];
+
+  // サービスIDからサービス情報を取得
+  const getServiceInfo = (serviceId) => {
+    for (const category of Object.values(linkServices)) {
+      const service = category.services.find(s => s.id === serviceId);
+      if (service) return service;
+    }
+    // 旧形式のサービス名にも対応
+    if (serviceId) {
+      return { id: serviceId, name: serviceId, icon: '🔗', color: 'from-purple-600 to-pink-600' };
+    }
+    return null;
+  };
+  
   const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingTypes: ['past'] });
   const [ef, setEf] = useState({ eventType: 'war', historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', year: '', desc: '', detail: '', topic: { title: '', url: '' } });
   const [sf, setSf] = useState({ mainEra: 'modern', subEra: '', subEraType: 'normal', subEraYears: '', parentSubEra: '', historyCategories: ['world'], desc: '', detail: '' });
@@ -61,7 +156,16 @@ const App = () => {
   const [eventSort, setEventSort] = useState('year');
   const [subEraSort, setSubEraSort] = useState('year');
   const [historyFilter, setHistoryFilter] = useState('all'); // all, japan, world
-  // カテゴリーフィルター（defaultCategoryFilterはconstantsからインポート）
+  // カテゴリーフィルター
+  // カテゴリフィルターのデフォルト値
+  const defaultCategoryFilter = {
+    movie: true,
+    drama: true,
+    manga: true,
+    anime: true,
+    game: true,
+    trivia: false
+  };
   
   // localStorageから読み込み（なければデフォルト値）
   const [categoryFilter, setCategoryFilter] = useState(() => {
@@ -102,7 +206,34 @@ const App = () => {
   const [settingTypesFilter, setSettingTypesFilter] = useState(['contemporary', 'past', 'future']); // すべて選択状態がデフォルト
   const [showSettingFilter, setShowSettingFilter] = useState(false);
   
-  // gameInfo, tmdbInfo, autoThumbnail はuseMediaInfoからインポート
+  // ゲームプラットフォーム情報用State
+  const [gameInfo, setGameInfo] = useState(null);
+  const [gameInfoLoading, setGameInfoLoading] = useState(false);
+  
+  // 自動取得サムネイル用State
+  const [autoThumbnail, setAutoThumbnail] = useState(null);
+  
+  // ゲームプラットフォーム情報取得関数
+  const fetchGameInfo = async (englishTitle) => {
+    if (!englishTitle) {
+      setGameInfo(null);
+      return;
+    }
+    setGameInfoLoading(true);
+    try {
+      const info = await searchGame(englishTitle);
+      setGameInfo(info);
+      // サムネイル自動取得
+      if (info?.backgroundImage) {
+        setAutoThumbnail(info.backgroundImage);
+      }
+    } catch (error) {
+      console.error('Failed to fetch game info:', error);
+      setGameInfo(null);
+    } finally {
+      setGameInfoLoading(false);
+    }
+  };
   
   // サムネイルをFirestoreに自動保存する関数
   const saveThumbnailToFirestore = async (itemId, idx, thumbnailUrl) => {
@@ -131,7 +262,76 @@ const App = () => {
       console.error('サムネイル自動保存エラー:', error);
     }
   };
-
+  
+  // 選択中アイテムが変わったときにプラットフォーム情報を取得
+  useEffect(() => {
+    if (sel && (sel.type === 'game' || (Array.isArray(sel.type) && sel.type.includes('game'))) && sel.englishTitle) {
+      fetchGameInfo(sel.englishTitle);
+    } else {
+      setGameInfo(null);
+    }
+    // selが変わったらautoThumbnailをリセット
+    setAutoThumbnail(null);
+  }, [sel]);
+  
+  // 映画情報用State → TMDB情報（映画・ドラマ・アニメ共通）
+  const [tmdbInfo, setTmdbInfo] = useState(null);
+  const [tmdbInfoLoading, setTmdbInfoLoading] = useState(false);
+  
+  // TMDB情報取得関数（映画・ドラマ・アニメ対応）
+  const fetchTmdbInfo = async (title, englishTitle, categories, searchDirector = '', searchHint = '') => {
+    // 検索するタイトル（英語タイトルがあればそちらを優先）
+    const searchTitle = englishTitle || title;
+    if (!searchTitle) {
+      setTmdbInfo(null);
+      return;
+    }
+    
+    // カテゴリから検索タイプを判定
+    const isMovie = categories === 'movie' || (Array.isArray(categories) && categories.includes('movie'));
+    const isDrama = categories === 'drama' || (Array.isArray(categories) && categories.includes('drama'));
+    const isAnime = categories === 'anime' || (Array.isArray(categories) && categories.includes('anime'));
+    
+    if (!isMovie && !isDrama && !isAnime) {
+      setTmdbInfo(null);
+      return;
+    }
+    
+    setTmdbInfoLoading(true);
+    try {
+      let info = null;
+      
+      if (isMovie) {
+        // 映画検索
+        info = await searchMovie(searchTitle, searchDirector);
+      } else if (isDrama || isAnime) {
+        // ドラマ・アニメはTV検索（アニメは日本作品を優先）
+        info = await searchTV(searchTitle, searchHint, isAnime);
+      }
+      
+      setTmdbInfo(info);
+      // サムネイル自動取得
+      if (info?.posterUrl) {
+        setAutoThumbnail(info.posterUrl);
+      }
+    } catch (error) {
+      console.error('Failed to fetch TMDB info:', error);
+      setTmdbInfo(null);
+    } finally {
+      setTmdbInfoLoading(false);
+    }
+  };
+  
+  // 選択中アイテムが変わったときにTMDB情報を取得
+  useEffect(() => {
+    if (sel && (sel.type === 'movie' || sel.type === 'drama' || sel.type === 'anime' || 
+        (Array.isArray(sel.type) && (sel.type.includes('movie') || sel.type.includes('drama') || sel.type.includes('anime'))))) {
+      fetchTmdbInfo(sel.title, sel.englishTitle, sel.type, sel.searchDirector || '', sel.searchHint || '');
+    } else {
+      setTmdbInfo(null);
+    }
+  }, [sel]);
+  
   // autoThumbnailが取得できたらFirestoreに自動保存
   useEffect(() => {
     if (autoThumbnail && sel && sel.itemId && sel.idx !== undefined && !sel.thumbnail) {
@@ -139,12 +339,224 @@ const App = () => {
     }
   }, [autoThumbnail, sel]);
 
-  // getHistoryCategories, hasHistoryCategory はutilsからインポート
+  // historyCategory/historyCategoriesの正規化ヘルパー
+  const getHistoryCategories = (item) => {
+    if (item?.historyCategories && Array.isArray(item.historyCategories)) {
+      return item.historyCategories;
+    }
+    if (item?.historyCategory) {
+      return [item.historyCategory];
+    }
+    return ['world'];
+  };
+  
+  const hasHistoryCategory = (item, category) => {
+    const cats = getHistoryCategories(item);
+    return cats.includes(category);
+  };
 
-  // parseYear, getCentury, detectMainEra はutilsからインポート
+  // 年代文字列を数値に変換（ソート用）
+  const parseYear = (yearStr) => {
+    if (!yearStr) return 0;
+    const str = String(yearStr).trim();
+    
+    // 空文字列の場合
+    if (str === '') return 0;
+    
+    // 紀元前またはBC形式に対応
+    if (str.includes('紀元前') || str.toUpperCase().includes('BC')) {
+      const match = str.match(/(\d+)/);
+      if (match) {
+        return -parseInt(match[1]);
+      }
+      return 0;
+    }
+    
+    // 「XX世紀」形式（15世紀、15世紀前期、15世紀頃など）
+    if (str.includes('世紀')) {
+      const match = str.match(/(\d+)\s*世紀/);
+      if (match) {
+        const century = parseInt(match[1]);
+        let baseYear = (century - 1) * 100 + 1; // 15世紀 → 1401
+        // 前期・前半 → +15, 中期・中頃 → +50, 後期・後半 → +85
+        if (str.includes('前期') || str.includes('前半')) baseYear += 15;
+        else if (str.includes('中期') || str.includes('中頃')) baseYear += 50;
+        else if (str.includes('後期') || str.includes('後半')) baseYear += 85;
+        return baseYear;
+      }
+    }
+    
+    // 「XXXX年代」形式（1960年代、1430年代など）
+    if (str.includes('年代')) {
+      const match = str.match(/(\d+)\s*年代/);
+      if (match) {
+        let baseYear = parseInt(match[1]);
+        // 前期・前半 → +2, 中期・中頃 → +5, 後期・後半 → +8
+        if (str.includes('前期') || str.includes('前半')) baseYear += 2;
+        else if (str.includes('中期') || str.includes('中頃')) baseYear += 5;
+        else if (str.includes('後期') || str.includes('後半')) baseYear += 8;
+        return baseYear;
+      }
+    }
+    
+    // ハイフン・チルダ区切りの場合は最初の年を使用（1966-1974 → 1966）
+    const parts = str.split(/[-〜~～]/);
+    const firstPart = parts[0];
+    
+    // 最初の4桁以下の連続数字を抽出（1917年 → 1917）
+    const numMatch = firstPart.match(/(\d{1,4})/);
+    if (numMatch) {
+      return parseInt(numMatch[1]);
+    }
+    
+    return 0;
+  };
 
-  // sortedData, existingYears はuseTimelineDataからインポート
-  // 認証状態監視、データ取得、設定管理はカスタムフックに移動済み
+  // 年から世紀を計算
+  const getCentury = (year) => {
+    // 無効な値の場合はnullを返す
+    if (year === 0 || year === null || year === undefined || isNaN(year)) return null;
+    // 異常に大きい値（5000以上）は無視
+    if (Math.abs(year) > 5000) return null;
+    
+    if (year > 0) {
+      const century = Math.ceil(year / 100);
+      return { century, label: `${century}世紀`, isBC: false };
+    } else {
+      const century = Math.ceil(Math.abs(year) / 100);
+      return { century, label: `BC${century}世紀`, isBC: true };
+    }
+  };
+
+  // 年号から大区分を自動判定
+  const detectMainEra = (yearStr) => {
+    const year = parseYear(yearStr);
+    if (year <= 500) return 'ancient';
+    if (year <= 1500) return 'medieval';
+    if (year <= 1800) return 'early-modern';
+    if (year < 1945) return 'modern';  // 1945年未満が近代、1945年以降は現代
+    return 'contemporary';
+  };
+
+  const sortedData = [...data].sort((a, b) => {
+    const yearDiff = parseYear(a.year) - parseYear(b.year);
+    if (yearDiff !== 0) return yearDiff;
+    // 同じ年の場合はIDでソート（安定化）
+    return (a.id || '').localeCompare(b.id || '');
+  });
+
+  // 既存の年号リストを抽出（入力補完用）
+  const existingYears = useMemo(() => {
+    const years = new Set();
+    sortedData.forEach(item => {
+      if (item.year) years.add(item.year);
+      // 時代区分の年代も追加
+      if (item.subEraYears) years.add(item.subEraYears);
+    });
+    return [...years].sort((a, b) => parseYear(a) - parseYear(b));
+  }, [sortedData]);
+
+  // Firebase認証状態の監視
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      if (user) {
+        setAdminMode(true);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Firebaseからデータを取得
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const firebaseData = await fetchTimelineData();
+        if (firebaseData.length > 0) {
+          // === マイグレーション処理: 1945年以降で親なしの作品を現代に移動 ===
+          // このコードは一度実行後に削除可能
+          const migrateData = async () => {
+            for (const item of firebaseData) {
+              if (!item.id?.startsWith('sample')) {
+                // parseYear関数のローカル版
+                const parseYearLocal = (str) => {
+                  if (!str) return 9999;
+                  const s = String(str).trim();
+                  const bcMatch = s.match(/(?:紀元前|BC)\s*(\d+)/i);
+                  if (bcMatch) return -parseInt(bcMatch[1], 10);
+                  const centuryMatch = s.match(/(\d+)\s*世紀/);
+                  if (centuryMatch) {
+                    const century = parseInt(centuryMatch[1], 10);
+                    return (century - 1) * 100 + 1;
+                  }
+                  const yearMatch = s.match(/(\d{3,4})/);
+                  if (yearMatch) return parseInt(yearMatch[1], 10);
+                  return 9999;
+                };
+                
+                // コンテンツを持つアイテムで、mainEraが'modern'のものをチェック
+                if (item.content && item.content.length > 0 && item.mainEra === 'modern') {
+                  const year = parseYearLocal(item.year);
+                  // 1945年以降で、コンテンツに親(parentSubEra)がないものを更新
+                  const hasNoParent = item.content.every(c => !c.parentSubEra);
+                  if (year >= 1945 && hasNoParent) {
+                    console.log('マイグレーション: ', item.year, item.content.map(c => c.title).join(', '));
+                    try {
+                      await updateDoc(doc(db, 'timeline', item.id), { mainEra: 'contemporary' });
+                    } catch (e) {
+                      console.error('マイグレーションエラー:', e);
+                    }
+                  }
+                }
+              }
+            }
+          };
+          await migrateData();
+          // マイグレーション後にデータを再読み込み
+          const updatedData = await fetchTimelineData();
+          setData(updatedData);
+          // === マイグレーション処理ここまで ===
+        } else {
+          setData(sampleData);
+        }
+      } catch (error) {
+        console.error('データ読み込みエラー:', error);
+        setData(sampleData);
+      }
+      setLoading(false);
+    };
+    loadData();
+  }, []);
+
+  // Firestoreから設定を取得
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settingsDoc = await getDoc(doc(db, 'settings', 'global'));
+        if (settingsDoc.exists()) {
+          setAffiliateEnabled(settingsDoc.data().affiliateEnabled ?? false);
+        }
+      } catch (error) {
+        console.error('設定読み込みエラー:', error);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  // アフィリエイト設定をトグル
+  const toggleAffiliate = async () => {
+    const newValue = !affiliateEnabled;
+    setAffiliateEnabled(newValue);
+    try {
+      await setDoc(doc(db, 'settings', 'global'), { affiliateEnabled: newValue }, { merge: true });
+      console.log('アフィリエイト設定を更新:', newValue ? '公開' : '非公開');
+    } catch (error) {
+      console.error('設定保存エラー:', error);
+      alert('設定の保存に失敗しました。Firestoreのセキュリティルールを確認してください。');
+      setAffiliateEnabled(!newValue); // エラー時は元に戻す
+    }
+  };
 
   // 単一タイプのスタイル
   const styleBase = { 
@@ -1130,7 +1542,7 @@ const App = () => {
     if (adminMode) {
       logoutAdmin().then(() => {
         setAdminMode(false);
-        // currentUserはuseAuthフックのonAuthStateChangedで自動的にnullになる
+        setCurrentUser(null);
       });
     } else {
       setShowPasswordPrompt(true);
