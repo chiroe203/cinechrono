@@ -166,6 +166,7 @@ const TimelineContent = ({
       const filteredEvents = (item.events || []).filter(ev => passesFilter(ev));
       
       if (item.subEra && subEraGroups[item.subEra]) {
+        // 時代区分を持つアイテムの場合
         const normalContents = [];
         const parentedContents = [];
         
@@ -193,10 +194,41 @@ const TimelineContent = ({
           subEraGroups[item.subEra].items.push(modifiedItem);
         }
       } else if (!item.subEra) {
-        if (filteredContent.length > 0 || filteredEvents.length > 0) {
-          const modifiedItem = { ...item, content: filteredContent, events: filteredEvents };
+        // 時代区分を持たないアイテムの場合も parentSubEra をチェック
+        const normalContents = [];
+        const parentedContents = [];
+        
+        filteredContent.forEach((c, idx) => {
+          const originalIdx = (item.content || []).findIndex(oc => oc === c);
+          // parentSubEra が設定されていて、その親が存在する場合
+          if (c.parentSubEra && subEraGroups[c.parentSubEra]) {
+            parentedContents.push({ content: c, idx: originalIdx, item, year: item.year });
+          } else {
+            normalContents.push({ ...c, _originalIdx: originalIdx });
+          }
+        });
+        
+        // 親に紐付くコンテンツを追加
+        parentedContents.forEach(pc => {
+          subEraGroups[pc.content.parentSubEra].childContents.push(pc);
+        });
+        
+        // 残りのコンテンツを noSubEraItems に追加
+        if (normalContents.length > 0 || filteredEvents.length > 0) {
+          const modifiedItem = { ...item, content: normalContents, events: filteredEvents };
           noSubEraItems.push(modifiedItem);
         }
+      }
+    });
+    
+    // 各時代区分のchildContentsを年順にソート
+    Object.values(subEraGroups).forEach(group => {
+      if (group.childContents && group.childContents.length > 0) {
+        group.childContents.sort((a, b) => {
+          const yearA = parseYear(a.year);
+          const yearB = parseYear(b.year);
+          return yearA - yearB;
+        });
       }
     });
     
@@ -409,8 +441,8 @@ const SubEraGroup = ({
       <NowArrow show={showNowArrow} />
       
       {/* 時代区分ヘッダー */}
-      <div className="flex items-center ml-12 relative">
-        <div className={`absolute left-[-48px] top-5 w-12 border-t-2 border-dashed ${colors.line}`}></div>
+      <div className="flex items-center ml-12 relative mb-6 mt-4">
+        <div className={`absolute left-[-16px] top-5 w-4 border-t-2 border-dashed ${colors.line}`}></div>
         <div 
           className="flex items-center cursor-pointer group"
           onClick={() => setSel({ 
@@ -496,37 +528,41 @@ const SubEraGroup = ({
       })}
       
       {/* 子コンテンツ */}
-      {ti.childContents?.map((pc, pcIdx) => {
-        const s = style(pc.content.type);
-        const displayPeriod = pc.content.periodRange || '';
-        const prevPc = pcIdx > 0 ? ti.childContents[pcIdx - 1] : null;
-        const showYearLabel = pc.year && (!prevPc || prevPc.year !== pc.year);
-        const types = pc.content.settingTypes || (pc.content.settingType ? [pc.content.settingType] : []);
-        
-        return (
-          <div key={`pc-${pcIdx}`} className="ml-20 mb-4">
-            {showYearLabel && <div className="text-lg font-bold text-purple-600 mb-2">{pc.year}</div>}
-            <div 
-              onClick={() => { setVideoIndex(0); setSel({ ...pc.content, year: pc.year, itemId: pc.item.id, idx: pc.idx }); }} 
-              className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  {getSettingTypeIcon(types)}
-                  <span className={`font-bold ${s.txt}`}>{pc.content.title}</span>
+      {ti.childContents?.length > 0 && (
+        <div className="mt-2">
+          {ti.childContents.map((pc, pcIdx) => {
+            const s = style(pc.content.type);
+            const displayPeriod = pc.content.periodRange || '';
+            const prevPc = pcIdx > 0 ? ti.childContents[pcIdx - 1] : null;
+            const showYearLabel = pc.year && (!prevPc || prevPc.year !== pc.year);
+            const types = pc.content.settingTypes || (pc.content.settingType ? [pc.content.settingType] : []);
+            
+            return (
+              <div key={`pc-${pcIdx}`} className="ml-20 mb-4">
+                {showYearLabel && <div className="text-lg font-bold text-purple-600 mb-2 mt-2">{pc.year}</div>}
+                <div 
+                  onClick={() => { setVideoIndex(0); setSel({ ...pc.content, year: pc.year, itemId: pc.item.id, idx: pc.idx }); }} 
+                  className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {getSettingTypeIcon(types)}
+                      <span className={`font-bold ${s.txt}`}>{pc.content.title}</span>
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">{label(pc.content.type)}</div>
+                    <div className="text-sm text-gray-500 min-h-[1.25rem]">{displayPeriod}</div>
+                  </div>
+                  {pc.content.thumbnail ? (
+                    <img src={pc.content.thumbnail} alt="" className="w-16 h-16 object-cover rounded flex-shrink-0" onError={(e) => e.target.style.display='none'} />
+                  ) : (
+                    <div className="w-16 h-16 flex-shrink-0"></div>
+                  )}
                 </div>
-                <div className="text-sm text-gray-600 mt-1">{label(pc.content.type)}</div>
-                <div className="text-sm text-gray-500 min-h-[1.25rem]">{displayPeriod}</div>
               </div>
-              {pc.content.thumbnail ? (
-                <img src={pc.content.thumbnail} alt="" className="w-16 h-16 object-cover rounded flex-shrink-0" onError={(e) => e.target.style.display='none'} />
-              ) : (
-                <div className="w-16 h-16 flex-shrink-0"></div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+            );
+          })}
+        </div>
+      )}
       
       {/* 子時代区分グループ */}
       {ti.childGroups?.map((child, childIdx) => (
@@ -563,10 +599,10 @@ const ChildSubEraGroup = ({
     : { bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-800', subtext: 'text-gray-500', line: 'border-gray-400', iconColor: 'text-gray-600' };
 
   return (
-    <div>
+    <div className="mt-2">
       {/* 子時代区分ヘッダー */}
       <div className="flex items-center ml-20 relative mb-4">
-        <div className={`absolute left-[-48px] top-5 w-12 border-t-2 border-dashed ${childColors.line}`}></div>
+        <div className={`absolute left-[-48px] top-4 w-12 border-t-2 border-dashed ${childColors.line}`}></div>
         <div 
           className="flex items-center cursor-pointer group"
           onClick={() => setSel({ 
