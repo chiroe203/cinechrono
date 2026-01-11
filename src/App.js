@@ -6,6 +6,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import Articles from './pages/Articles';
 import { searchGame, formatReleaseDate } from './libs/rawg';
 import { searchMovie, searchTV, formatMovieReleaseDate, formatRuntime } from './libs/tmdb';
+import { translateToJapanese } from './libs/deepl';
 import { eras, linkServices, getServiceInfo, gamePlatforms, defaultCategoryFilter } from './constants';
 import { parseYear, getCentury, detectMainEra, getHistoryCategories, hasHistoryCategory, styleBase, labelBase, getTypes, getStyle, getLabel, getTypeIcons, getEventIcon, getSubEraIcon, getYoutubeId } from './utils';
 import { useAuth, useMediaInfo, useSettings, useTimelineData } from './hooks';
@@ -49,6 +50,9 @@ const App = () => {
   
   // 動画カルーセル用state
   const [videoIndex, setVideoIndex] = useState(0);
+  
+  // ゲームあらすじ一括更新用state
+  const [bulkUpdateProgress, setBulkUpdateProgress] = useState(null);
   
   // フォームへのスクロール用ref
   const contentFormRef = useRef(null);
@@ -135,6 +139,100 @@ const App = () => {
     } catch (error) {
       console.error('サムネイル自動保存エラー:', error);
     }
+  };
+
+  // ゲームあらすじ一括更新関数
+  const bulkUpdateGameSynopsis = async (selectedItems) => {
+    if (!selectedItems || selectedItems.length === 0) return;
+    
+    setBulkUpdateProgress({
+      isUpdating: true,
+      total: selectedItems.length,
+      current: 0,
+      currentTitle: '',
+      results: []
+    });
+
+    const results = [];
+
+    for (let i = 0; i < selectedItems.length; i++) {
+      const { item, content: c, idx } = selectedItems[i];
+      
+      setBulkUpdateProgress(prev => ({
+        ...prev,
+        current: i,
+        currentTitle: c.title
+      }));
+
+      try {
+        // 英語タイトルが必要
+        if (!c.englishTitle) {
+          results.push({ title: c.title, success: false, error: '英語タイトルがありません' });
+          continue;
+        }
+
+        // RAWGからゲーム情報を取得
+        const gameData = await searchGame(c.englishTitle);
+        if (!gameData || !gameData.description) {
+          results.push({ title: c.title, success: false, error: 'RAWGからあらすじを取得できませんでした' });
+          continue;
+        }
+
+        // DeepLで日本語に翻訳
+        const japaneseDescription = await translateToJapanese(gameData.description);
+        if (!japaneseDescription) {
+          results.push({ title: c.title, success: false, error: '翻訳に失敗しました' });
+          continue;
+        }
+
+        // Firestoreを更新
+        const targetItem = data.find(d => d.id === item.id);
+        if (!targetItem || !targetItem.content || !targetItem.content[idx]) {
+          results.push({ title: c.title, success: false, error: 'データが見つかりません' });
+          continue;
+        }
+
+        const updatedContent = [...targetItem.content];
+        updatedContent[idx] = { 
+          ...updatedContent[idx], 
+          translatedDescription: japaneseDescription 
+        };
+
+        const docRef = doc(db, 'timeline', item.id);
+        await updateDoc(docRef, { content: updatedContent });
+
+        // ローカルデータも更新
+        setData(prev => prev.map(d => 
+          d.id === item.id ? { ...d, content: updatedContent } : d
+        ));
+
+        results.push({ title: c.title, success: true });
+
+        // API制限対策で少し待機
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+      } catch (error) {
+        console.error('一括更新エラー:', c.title, error);
+        results.push({ title: c.title, success: false, error: error.message });
+      }
+
+      setBulkUpdateProgress(prev => ({
+        ...prev,
+        current: i + 1,
+        results: [...results]
+      }));
+    }
+
+    // 完了
+    setBulkUpdateProgress(prev => ({
+      ...prev,
+      isUpdating: false,
+      currentTitle: ''
+    }));
+
+    // 結果を表示
+    const successCount = results.filter(r => r.success).length;
+    alert(`完了しました！\n成功: ${successCount}件 / 失敗: ${results.length - successCount}件`);
   };
 
   // autoThumbnailが取得できたらFirestoreに自動保存
@@ -1393,6 +1491,8 @@ const App = () => {
         deleteContent={deleteContent}
         deleteSubEra={deleteSubEra}
         contentFormRef={contentFormRef}
+        onBulkUpdateGameSynopsis={bulkUpdateGameSynopsis}
+        bulkUpdateProgress={bulkUpdateProgress}
       />
 
       <LoginModal

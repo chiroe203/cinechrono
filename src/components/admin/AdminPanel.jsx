@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, Settings, Pencil, Loader2, ToggleLeft, ToggleRight, Lightbulb } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Settings, Pencil, Loader2, ToggleLeft, ToggleRight, Lightbulb, RefreshCw, CheckSquare, Square } from 'lucide-react';
 import { eras, linkServices, gamePlatforms } from '../../constants';
 import { parseYear, detectMainEra, getHistoryCategories, hasHistoryCategory, getLabel, getSubEraIcon } from '../../utils';
 
@@ -53,7 +53,10 @@ const AdminPanel = ({
   deleteContent,
   deleteSubEra,
   // Ref
-  contentFormRef
+  contentFormRef,
+  // ゲームあらすじ一括更新
+  onBulkUpdateGameSynopsis,
+  bulkUpdateProgress
 }) => {
   if (!show) return null;
 
@@ -138,6 +141,8 @@ const AdminPanel = ({
               deleteContent={deleteContent}
               contentFormRef={contentFormRef}
               label={label}
+              onBulkUpdateGameSynopsis={onBulkUpdateGameSynopsis}
+              bulkUpdateProgress={bulkUpdateProgress}
             />
           )}
 
@@ -203,7 +208,9 @@ const ContentForm = ({
   startEdit,
   deleteContent,
   contentFormRef,
-  label
+  label,
+  onBulkUpdateGameSynopsis,
+  bulkUpdateProgress
 }) => {
   return (
     <form ref={contentFormRef} onSubmit={onSubmit} className="bg-gray-50 rounded-lg p-6 border space-y-4">
@@ -635,6 +642,8 @@ const ContentForm = ({
         startEdit={startEdit}
         deleteContent={deleteContent}
         label={label}
+        onBulkUpdateGameSynopsis={onBulkUpdateGameSynopsis}
+        bulkUpdateProgress={bulkUpdateProgress}
       />
     </form>
   );
@@ -651,8 +660,14 @@ const ContentList = ({
   saving,
   startEdit,
   deleteContent,
-  label
+  label,
+  onBulkUpdateGameSynopsis,
+  bulkUpdateProgress
 }) => {
+  // ゲーム選択用state
+  const [selectedGames, setSelectedGames] = useState([]);
+  const [showGamesOnly, setShowGamesOnly] = useState(false);
+
   // コンテンツを抽出（トリビアは除外）
   const allContent = sortedData.flatMap(item => 
     (item.content || [])
@@ -661,9 +676,17 @@ const ContentList = ({
   );
   
   // フィルター適用
-  const filtered = adminContentFilter === 'all' 
+  let filtered = adminContentFilter === 'all' 
     ? allContent 
     : allContent.filter(({ content: c }) => hasHistoryCategory(c, adminContentFilter));
+  
+  // ゲームのみ表示フィルター
+  if (showGamesOnly) {
+    filtered = filtered.filter(({ content: c }) => {
+      const types = Array.isArray(c.type) ? c.type : [c.type];
+      return types.includes('game');
+    });
+  }
   
   // 並び替え
   const sorted = [...filtered].sort((a, b) => {
@@ -675,6 +698,50 @@ const ContentList = ({
       return (b.item.id || '').localeCompare(a.item.id || '');
     }
   });
+
+  // ゲームのみ抽出
+  const games = sorted.filter(({ content: c }) => {
+    const types = Array.isArray(c.type) ? c.type : [c.type];
+    return types.includes('game');
+  });
+
+  // 全選択/解除
+  const toggleSelectAll = () => {
+    if (selectedGames.length === games.length) {
+      setSelectedGames([]);
+    } else {
+      setSelectedGames(games.map(({ item, idx }) => `${item.id}-${idx}`));
+    }
+  };
+
+  // 個別選択
+  const toggleSelect = (itemId, idx) => {
+    const key = `${itemId}-${idx}`;
+    if (selectedGames.includes(key)) {
+      setSelectedGames(selectedGames.filter(k => k !== key));
+    } else {
+      setSelectedGames([...selectedGames, key]);
+    }
+  };
+
+  // 一括更新実行
+  const handleBulkUpdate = () => {
+    if (selectedGames.length === 0) {
+      alert('ゲームを選択してください');
+      return;
+    }
+    
+    // 選択されたゲームの情報を抽出
+    const selectedItems = selectedGames.map(key => {
+      const [itemId, idx] = key.split('-');
+      const game = games.find(g => g.item.id === itemId && g.idx === parseInt(idx));
+      return game;
+    }).filter(Boolean);
+    
+    if (onBulkUpdateGameSynopsis) {
+      onBulkUpdateGameSynopsis(selectedItems);
+    }
+  };
 
   return (
     <div className="mt-8 pt-8 border-t">
@@ -690,15 +757,118 @@ const ContentList = ({
           <button type="button" onClick={() => setContentSort('created')} className={`px-3 py-1 text-xs rounded-full ${contentSort === 'created' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>登録日順</button>
         </div>
       </div>
+
+      {/* ゲームあらすじ一括更新エリア */}
+      <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🎮</span>
+            <span className="font-semibold text-gray-700">ゲームあらすじ一括更新</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowGamesOnly(!showGamesOnly)}
+            className={`px-3 py-1 text-xs rounded-full ${showGamesOnly ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+          >
+            {showGamesOnly ? '🎮 ゲームのみ表示中' : 'ゲームのみ表示'}
+          </button>
+        </div>
+        
+        {games.length > 0 && (
+          <div className="flex items-center gap-3 mb-3">
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800"
+            >
+              {selectedGames.length === games.length ? (
+                <CheckSquare className="w-4 h-4 text-yellow-600" />
+              ) : (
+                <Square className="w-4 h-4" />
+              )}
+              全選択 ({games.length}件)
+            </button>
+            <span className="text-sm text-gray-500">
+              選択中: {selectedGames.length}件
+            </span>
+          </div>
+        )}
+
+        {/* 更新進捗表示 */}
+        {bulkUpdateProgress && bulkUpdateProgress.isUpdating && (
+          <div className="mb-3 p-3 bg-white rounded-lg border">
+            <div className="flex items-center gap-2 mb-2">
+              <Loader2 className="w-4 h-4 animate-spin text-yellow-600" />
+              <span className="text-sm font-medium">更新中...</span>
+            </div>
+            <div className="text-sm text-gray-600 mb-2">
+              {bulkUpdateProgress.current} / {bulkUpdateProgress.total}
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-yellow-500 h-2 rounded-full transition-all duration-300" 
+                style={{ width: `${(bulkUpdateProgress.current / bulkUpdateProgress.total) * 100}%` }}
+              />
+            </div>
+            {bulkUpdateProgress.currentTitle && (
+              <div className="text-xs text-gray-500 mt-2">
+                処理中: {bulkUpdateProgress.currentTitle}
+              </div>
+            )}
+            {bulkUpdateProgress.results && bulkUpdateProgress.results.length > 0 && (
+              <div className="mt-2 text-xs space-y-1 max-h-24 overflow-y-auto">
+                {bulkUpdateProgress.results.map((r, i) => (
+                  <div key={i} className={r.success ? 'text-green-600' : 'text-red-600'}>
+                    {r.success ? '✅' : '❌'} {r.title}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleBulkUpdate}
+          disabled={selectedGames.length === 0 || saving || (bulkUpdateProgress && bulkUpdateProgress.isUpdating)}
+          className="w-full py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-lg font-semibold disabled:opacity-50 hover:from-yellow-600 hover:to-orange-600 flex items-center justify-center gap-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          選択したゲームのあらすじを更新 ({selectedGames.length}件)
+        </button>
+        <p className="text-xs text-gray-500 mt-2">
+          ※RAWGから英語あらすじを取得し、DeepLで日本語に翻訳してFirestoreに保存します
+        </p>
+      </div>
+
       <div className="space-y-2 max-h-96 overflow-y-auto">
         {sorted.map(({ item, content: c, idx }) => {
           const displayPeriod = c.periodRange || (c.year ? `${c.year}年頃` : '');
           const cats = getHistoryCategories(c);
+          const types = Array.isArray(c.type) ? c.type : [c.type];
+          const isGame = types.includes('game');
+          const isSelected = selectedGames.includes(`${item.id}-${idx}`);
+          
           return (
             <div 
               key={`${item.id}-c-${idx}`} 
-              className={`flex items-center justify-between p-3 bg-white border rounded-lg ${editMode && editTarget?.itemId === item.id && editTarget?.idx === idx && editTarget?.type === 'content' ? 'ring-2 ring-yellow-400 bg-yellow-50' : ''}`}
+              className={`flex items-center justify-between p-3 bg-white border rounded-lg ${editMode && editTarget?.itemId === item.id && editTarget?.idx === idx && editTarget?.type === 'content' ? 'ring-2 ring-yellow-400 bg-yellow-50' : ''} ${isSelected ? 'ring-2 ring-yellow-300 bg-yellow-50' : ''}`}
             >
+              {/* チェックボックス（ゲームのみ） */}
+              {isGame && (
+                <button
+                  type="button"
+                  onClick={() => toggleSelect(item.id, idx)}
+                  className="mr-3 flex-shrink-0"
+                >
+                  {isSelected ? (
+                    <CheckSquare className="w-5 h-5 text-yellow-600" />
+                  ) : (
+                    <Square className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+                  )}
+                </button>
+              )}
+              
               <div className="flex-1">
                 <div className="font-semibold flex items-center gap-2">
                   {c.title}
@@ -706,6 +876,9 @@ const ContentList = ({
                   {cats.includes('world') && cats.includes('japan') && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">🌐</span>}
                   {c.parentSubEra && (
                     <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">→ {c.parentSubEra}</span>
+                  )}
+                  {isGame && c.translatedDescription && (
+                    <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">あらすじあり</span>
                   )}
                 </div>
                 <div className="text-sm text-gray-500">

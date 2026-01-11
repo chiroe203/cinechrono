@@ -213,6 +213,14 @@ const ContentDetail = ({
         </div>
       )}
 
+      {/* ゲームあらすじ（RAWG+DeepL翻訳） */}
+      {sel.translatedDescription && (
+        <div className="mb-4">
+          <div className="text-sm text-gray-500 mb-2">あらすじ</div>
+          <p className="text-gray-700">{sel.translatedDescription}</p>
+        </div>
+      )}
+
       {/* 手動入力のひとことTips */}
       {sel.synopsis && (
         <div className="mb-4">
