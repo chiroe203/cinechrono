@@ -21,7 +21,8 @@ const DetailModal = ({
   tmdbInfoLoading,
   videoIndex,
   setVideoIndex,
-  onEdit
+  onEdit,
+  onRemoveRelated  // 関連作品から削除する関数
 }) => {
   if (!sel) return null;
 
@@ -75,7 +76,7 @@ const DetailModal = ({
 
           {/* 時代区分の場合 */}
           {sel.type === 'subEra' ? (
-            <SubEraContent sel={sel} />
+            <SubEraContent sel={sel} adminMode={adminMode} onRemoveRelated={onRemoveRelated} />
           ) : sel.type !== 'history' ? (
             /* 通常コンテンツの場合 */
             <ContentDetail 
@@ -103,31 +104,84 @@ const DetailModal = ({
 /**
  * 時代区分コンテンツ
  */
-const SubEraContent = ({ sel }) => (
-  <>
-    {sel.subEraYears && (
-      <div className="mb-4">
-        <div className="text-sm text-gray-500 mb-1">期間</div>
-        <div className="text-lg font-semibold">{sel.subEraYears}</div>
-      </div>
-    )}
-    {sel.desc && (
-      <div className="mb-4">
-        <div className="text-sm text-gray-500 mb-2">概要</div>
-        <p className="text-gray-700 whitespace-pre-wrap">{sel.desc}</p>
-      </div>
-    )}
-    {sel.detail && (
-      <div className="mb-4 pt-4 border-t">
-        <div className="text-sm text-gray-500 mb-2">詳細</div>
-        <p className="text-gray-700 whitespace-pre-wrap">{sel.detail}</p>
-      </div>
-    )}
-    {!sel.desc && !sel.detail && (
-      <p className="text-gray-500 text-center py-8">詳細情報はまだ登録されていません</p>
-    )}
-  </>
-);
+const SubEraContent = ({ sel, adminMode, onRemoveRelated }) => {
+  // relatedContentsを使用（後方互換性: childContentsもサポート）
+  const relatedContents = sel.relatedContents || sel.childContents || [];
+  
+  // 関連作品から削除
+  const handleRemove = (pc) => {
+    if (onRemoveRelated && pc.itemId && pc.content) {
+      onRemoveRelated(pc.itemId, pc.idx, sel.subEra || sel.title);
+    }
+  };
+  
+  return (
+    <>
+      {sel.subEraYears && (
+        <div className="mb-4">
+          <div className="text-sm text-gray-500 mb-1">期間</div>
+          <div className="text-lg font-semibold">{sel.subEraYears}</div>
+        </div>
+      )}
+      {sel.desc && (
+        <div className="mb-4">
+          <div className="text-sm text-gray-500 mb-2">概要</div>
+          <p className="text-gray-700 whitespace-pre-wrap">{sel.desc}</p>
+        </div>
+      )}
+      {sel.detail && (
+        <div className="mb-4 pt-4 border-t">
+          <div className="text-sm text-gray-500 mb-2">詳細</div>
+          <p className="text-gray-700 whitespace-pre-wrap">{sel.detail}</p>
+        </div>
+      )}
+      
+      {/* 関連作品 */}
+      {relatedContents.length > 0 && (
+        <div className="mb-4 pt-4 border-t">
+          <div className="text-sm text-gray-500 mb-3">📚 関連作品</div>
+          <div className="space-y-2">
+            {relatedContents.map((pc, idx) => (
+              <div 
+                key={idx}
+                className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                {pc.content.thumbnail && (
+                  <img 
+                    src={pc.content.thumbnail} 
+                    alt="" 
+                    className="w-12 h-12 object-cover rounded flex-shrink-0"
+                    onError={(e) => e.target.style.display='none'}
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-purple-700 truncate">{pc.content.title}</div>
+                  <div className="text-xs text-gray-500">{pc.year}</div>
+                </div>
+                {/* 管理者モードで削除ボタン表示 */}
+                {adminMode && onRemoveRelated && (
+                  <button
+                    onClick={() => handleRemove(pc)}
+                    className="flex-shrink-0 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    title="関連作品から削除"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {!sel.desc && !sel.detail && relatedContents.length === 0 && (
+        <p className="text-gray-500 text-center py-8">詳細情報はまだ登録されていません</p>
+      )}
+    </>
+  );
+};
 
 /**
  * 歴史イベントコンテンツ
@@ -210,14 +264,6 @@ const ContentDetail = ({
         <div className="mb-4">
           <div className="text-sm text-gray-500 mb-2">あらすじ</div>
           <p className="text-gray-700">{tmdbInfo.overview}</p>
-        </div>
-      )}
-
-      {/* ゲームあらすじ（RAWG+DeepL翻訳） */}
-      {sel.translatedDescription && (
-        <div className="mb-4">
-          <div className="text-sm text-gray-500 mb-2">あらすじ</div>
-          <p className="text-gray-700">{sel.translatedDescription}</p>
         </div>
       )}
 

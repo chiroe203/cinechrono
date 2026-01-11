@@ -324,20 +324,61 @@ const ContentForm = ({
         <p className="text-xs text-gray-500 mt-2">タイムトラベル作品など、複数の時代にまたがる場合は複数選択してください</p>
       </div>
 
-      {/* 親時代区分 */}
+      {/* 配置用の親時代区分 */}
       <div className="space-y-2">
-        <label className="block text-sm font-semibold text-gray-700">🔗 親となる時代区分（任意）</label>
+        <label className="block text-sm font-semibold text-gray-700">📍 配置用の親（タイムライン表示位置）</label>
         <select 
-          value={cf.parentSubEra} 
-          onChange={e => setCf(p => ({ ...p, parentSubEra: e.target.value }))} 
-          className="w-full px-4 py-3 bg-white border rounded-lg"
+          value={cf.positionParent || ''} 
+          onChange={e => {
+            const newParent = e.target.value;
+            setCf(p => {
+              const newRelated = [...(p.relatedSubEras || [])];
+              // 新しい親を関連作品にも追加（まだ含まれていない場合）
+              if (newParent && !newRelated.includes(newParent)) {
+                newRelated.push(newParent);
+              }
+              return { ...p, positionParent: newParent, relatedSubEras: newRelated };
+            });
+          }} 
+          className="w-full px-4 py-3 bg-white border border-purple-300 rounded-lg"
         >
-          <option value="">なし</option>
+          <option value="">なし（年号順に配置）</option>
           {[...new Set(sortedData.filter(i => i.subEra).map(i => i.subEra))].map(sub => (
             <option key={sub} value={sub}>{sub}</option>
           ))}
         </select>
-        <p className="text-xs text-gray-500">例：第二次世界大戦関連の作品を「第二次世界大戦」グループ内に表示したい場合に選択</p>
+        <p className="text-xs text-purple-600">↑ 選択すると、その時代区分グループ内に配置されます（例：第二次世界大戦内に表示）</p>
+      </div>
+
+      {/* 関連作品として表示する時代区分 */}
+      <div className="bg-white border rounded-lg p-4">
+        <label className="block text-sm font-semibold text-gray-700 mb-3">📚 関連作品として表示する時代区分（複数選択可）</label>
+        <div className="max-h-48 overflow-y-auto space-y-2">
+          {[...new Set(sortedData.filter(i => i.subEra).map(i => i.subEra))].map(sub => (
+            <label key={sub} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
+              <input
+                type="checkbox"
+                checked={(cf.relatedSubEras || []).includes(sub)}
+                onChange={(e) => {
+                  setCf(p => {
+                    const current = p.relatedSubEras || [];
+                    if (e.target.checked) {
+                      return { ...p, relatedSubEras: [...current, sub] };
+                    } else {
+                      return { ...p, relatedSubEras: current.filter(s => s !== sub) };
+                    }
+                  });
+                }}
+                className="w-4 h-4 rounded accent-purple-600"
+              />
+              <span className={`text-sm ${(cf.relatedSubEras || []).includes(sub) ? 'font-semibold text-purple-700' : 'text-gray-700'}`}>
+                {sub}
+                {cf.positionParent === sub && <span className="ml-2 text-xs text-purple-500">（配置用に設定中）</span>}
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="text-xs text-gray-500 mt-2">↑ チェックした時代区分の「関連作品」欄に表示されます。配置用の親を設定すると自動でチェックされます</p>
       </div>
 
       {/* タイトル */}
@@ -413,9 +454,9 @@ const ContentForm = ({
         <input 
           value={cf.year} 
           onChange={e => setCf(p => ({ ...p, year: e.target.value, mainEra: detectMainEra(e.target.value) }))} 
-          placeholder={cf.parentSubEra ? "主な時代（例: 1907）※任意（親グループ内に表示）" : "主な時代（例: 1907）※必須・ソート基準"} 
-          className={`w-full px-4 py-3 bg-white border rounded-lg ${cf.parentSubEra ? 'border-gray-300' : 'border-purple-300'}`} 
-          required={!cf.parentSubEra}
+          placeholder={cf.positionParent ? "主な時代（例: 1907）※任意（親グループ内に表示）" : "主な時代（例: 1907）※必須・ソート基準"} 
+          className={`w-full px-4 py-3 bg-white border rounded-lg ${cf.positionParent ? 'border-gray-300' : 'border-purple-300'}`} 
+          required={!cf.positionParent}
           list="existing-years-list"
         />
         <datalist id="existing-years-list">
@@ -423,8 +464,8 @@ const ContentForm = ({
             <option key={year} value={year} />
           ))}
         </datalist>
-        <p className={`text-xs ${cf.parentSubEra ? 'text-gray-500' : 'text-purple-600'}`}>
-          {cf.parentSubEra 
+        <p className={`text-xs ${cf.positionParent ? 'text-gray-500' : 'text-purple-600'}`}>
+          {cf.positionParent 
             ? '↑ 親グループ内に表示されます。年号を入力すると紫色のラベルが付きます' 
             : '↑ 紫色で表示され、年表の並び順に使用されます（大区分は自動判定）・入力で既存年号をサジェスト'}
         </p>
@@ -913,8 +954,11 @@ const ContentList = ({
                   {c.title}
                   {cats.includes('japan') && <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">🇯🇵</span>}
                   {cats.includes('world') && cats.includes('japan') && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">🌐</span>}
-                  {c.parentSubEra && (
-                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">→ {c.parentSubEra}</span>
+                  {(c.positionParent || c.parentSubEra) && (
+                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">📍 {c.positionParent || c.parentSubEra}</span>
+                  )}
+                  {(c.relatedSubEras?.length > 0) && (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">📚 {c.relatedSubEras.length}件</span>
                   )}
                   {isGame && c.translatedDescription && (
                     <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">あらすじあり</span>

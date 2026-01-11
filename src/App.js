@@ -65,7 +65,7 @@ const App = () => {
   // data, sortedData, existingYears はuseTimelineDataからインポート
 
 
-  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', releaseYear: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', translatedDescription: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingTypes: ['past'] });
+  const [cf, setCf] = useState({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', releaseYear: '', mainEra: 'modern', subEra: '', subEraYears: '', positionParent: '', relatedSubEras: [], year: '', periodRange: '', synopsis: '', translatedDescription: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingTypes: ['past'] });
   const [ef, setEf] = useState({ eventType: 'war', historyCategories: ['world'], title: '', mainEra: 'modern', subEra: '', subEraYears: '', year: '', desc: '', detail: '', topic: { title: '', url: '' } });
   const [sf, setSf] = useState({ mainEra: 'modern', subEra: '', subEraType: 'normal', subEraYears: '', parentSubEra: '', historyCategories: ['world'], desc: '', detail: '' });
   const [tf, setTf] = useState({ title: '', year: '', mainEra: 'modern', historyCategories: ['world'], description: '', images: [''] }); // トリビア用フォーム
@@ -288,7 +288,7 @@ const App = () => {
 
   // フォームリセット
   const resetContentForm = () => {
-    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', releaseYear: '', mainEra: 'modern', subEra: '', subEraYears: '', parentSubEra: '', year: '', periodRange: '', synopsis: '', translatedDescription: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingTypes: ['past'] });
+    setCf({ categories: ['movie'], historyCategories: ['world'], title: '', englishTitle: '', searchDirector: '', searchHint: '', releaseYear: '', mainEra: 'modern', subEra: '', subEraYears: '', positionParent: '', relatedSubEras: [], year: '', periodRange: '', synopsis: '', translatedDescription: '', thumbnail: '', youtubeUrls: [''], links: [{ category: 'book', service: '', platform: '', url: '', customName: '' }], topic: { title: '', url: '' }, settingTypes: ['past'] });
     setEditMode(false);
     setEditTarget(null);
     setInitialSelectedGame(null);  // 初期選択もリセット
@@ -337,6 +337,10 @@ const App = () => {
       urls = [content.youtubeUrl];
     }
     
+    // 既存データの互換性対応: parentSubEra → positionParent, relatedSubEras
+    const positionParent = content.positionParent || content.parentSubEra || '';
+    const relatedSubEras = content.relatedSubEras || (content.parentSubEra ? [content.parentSubEra] : []);
+    
     setCf({
       categories: Array.isArray(content.type) ? content.type : [content.type || 'movie'],
       historyCategories: getHistoryCategories(content),
@@ -348,7 +352,8 @@ const App = () => {
       mainEra: item.mainEra,
       subEra: item.subEra || '',
       subEraYears: item.subEraYears || '',
-      parentSubEra: content.parentSubEra || '',
+      positionParent: positionParent,
+      relatedSubEras: relatedSubEras,
       year: item.year,
       periodRange: content.periodRange || (content.year ? String(content.year) : ''),
       synopsis: content.synopsis || '',
@@ -529,7 +534,8 @@ const App = () => {
       searchHint: cf.searchHint || '',
       releaseYear: cf.releaseYear || '',
       periodRange: cf.periodRange || '',
-      parentSubEra: cf.parentSubEra || '',
+      positionParent: cf.positionParent || '',
+      relatedSubEras: cf.relatedSubEras || [],
       synopsis: cf.synopsis || '', 
       translatedDescription: cf.translatedDescription || '',
       thumbnail: cf.thumbnail || autoFetchedThumbnail || '',
@@ -1159,6 +1165,55 @@ const App = () => {
     setSaving(false);
   };
 
+  // 関連作品から時代区分を削除
+  const removeRelatedSubEra = async (itemId, contentIdx, subEraName) => {
+    if (!window.confirm(`「${subEraName}」の関連作品から削除しますか？`)) return;
+    
+    try {
+      const item = data.find(i => i.id === itemId);
+      if (!item || !item.content[contentIdx]) return;
+      
+      const content = item.content[contentIdx];
+      const currentRelated = content.relatedSubEras || [];
+      const updatedRelated = currentRelated.filter(s => s !== subEraName);
+      
+      const updatedContent = [...item.content];
+      updatedContent[contentIdx] = { ...content, relatedSubEras: updatedRelated };
+      
+      // サンプルデータの場合
+      if (itemId.startsWith('sample')) {
+        setData(p => p.map(i => i.id === itemId ? { ...i, content: updatedContent } : i));
+        // selのrelatedContentsも更新
+        setSel(prev => {
+          if (!prev || prev.type !== 'subEra') return prev;
+          const newRelated = (prev.relatedContents || []).filter(pc => 
+            !(pc.itemId === itemId && pc.idx === contentIdx)
+          );
+          return { ...prev, relatedContents: newRelated };
+        });
+        return;
+      }
+      
+      // Firestoreを更新
+      const docRef = doc(db, 'timeline', itemId);
+      await updateDoc(docRef, { content: updatedContent });
+      setData(p => p.map(i => i.id === itemId ? { ...i, content: updatedContent } : i));
+      
+      // selのrelatedContentsも更新
+      setSel(prev => {
+        if (!prev || prev.type !== 'subEra') return prev;
+        const newRelated = (prev.relatedContents || []).filter(pc => 
+          !(pc.itemId === itemId && pc.idx === contentIdx)
+        );
+        return { ...prev, relatedContents: newRelated };
+      });
+      
+    } catch (error) {
+      console.error('関連作品削除エラー:', error);
+      alert('削除に失敗しました');
+    }
+  };
+
   const handleAdminModeToggle = () => {
     if (adminMode) {
       logoutAdmin().then(() => {
@@ -1460,6 +1515,7 @@ const App = () => {
         videoIndex={videoIndex}
         setVideoIndex={setVideoIndex}
         onEdit={editFromModal}
+        onRemoveRelated={removeRelatedSubEra}
       />
 
 
