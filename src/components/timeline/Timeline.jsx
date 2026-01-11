@@ -149,6 +149,29 @@ const TimelineContent = ({
       };
     }
   });
+  
+  // 先に全データからchildContentsを収集（時代をまたいだ参照のため）
+  sortedData.forEach(item => {
+    const filteredContent = (item.content || []).filter(c => passesFilter(c) && passesCategoryFilter(c) && passesSettingTypesFilter(c));
+    
+    filteredContent.forEach((c, idx) => {
+      const originalIdx = (item.content || []).findIndex(oc => oc === c);
+      const posParent = getPositionParent(c);
+      
+      // positionParentが設定されていて、その親がallSubEraGroupsに存在する場合
+      if (posParent && allSubEraGroups[posParent]) {
+        // yearが空の場合は親の開始年を使用
+        const effectiveYear = item.year || allSubEraGroups[posParent].startYear;
+        allSubEraGroups[posParent].childContents.push({
+          content: c,
+          idx: originalIdx,
+          item,
+          year: effectiveYear,
+          parentStartYear: allSubEraGroups[posParent].startYear
+        });
+      }
+    });
+  });
 
   return eras.map(era => {
     const eraData = sortedData.filter(i => i.mainEra === era.id);
@@ -161,6 +184,8 @@ const TimelineContent = ({
     // 時代区分を収集
     eraData.forEach(item => {
       if (item.subEra && !subEraGroups[item.subEra] && passesFilter(item)) {
+        // allSubEraGroupsからchildContentsを取得
+        const globalGroup = allSubEraGroups[item.subEra];
         subEraGroups[item.subEra] = {
           subEra: item.subEra,
           subEraYears: item.subEraYears,
@@ -174,7 +199,8 @@ const TimelineContent = ({
           endYear: parseYear(item.subEraYears?.split('-')[1] || item.subEraYears?.split('-')[0] || item.year),
           items: [],
           childGroups: [],
-          childContents: []
+          // allSubEraGroupsから収集したchildContentsを使用
+          childContents: globalGroup ? [...globalGroup.childContents] : []
         };
         if (item.parentSubEra) {
           childSubEras[item.subEra] = item.parentSubEra;
@@ -189,28 +215,14 @@ const TimelineContent = ({
       
       if (item.subEra && subEraGroups[item.subEra]) {
         // 時代区分を持つアイテムの場合
-        const normalContents = [];
-        const parentedContents = [];
-        
-        filteredContent.forEach((c, idx) => {
-          const originalIdx = (item.content || []).findIndex(oc => oc === c);
+        // positionParentが設定されているコンテンツは既にallSubEraGroupsで処理済みなので除外
+        const normalContents = filteredContent.filter((c) => {
           const posParent = getPositionParent(c);
-          if (posParent && subEraGroups[posParent]) {
-            parentedContents.push({ content: c, idx: originalIdx, item, year: item.year });
-          } else if (posParent && allSubEraGroups[posParent]) {
-            if (allSubEraGroups[posParent].mainEra !== era.id) {
-              // Skip - different era
-            } else {
-              normalContents.push({ ...c, _originalIdx: originalIdx });
-            }
-          } else {
-            normalContents.push({ ...c, _originalIdx: originalIdx });
-          }
-        });
-        
-        parentedContents.forEach(pc => {
-          const posParent = getPositionParent(pc.content);
-          subEraGroups[posParent].childContents.push(pc);
+          // positionParentが設定されていない、または親が存在しない場合のみ含める
+          return !posParent || !allSubEraGroups[posParent];
+        }).map((c, idx) => {
+          const originalIdx = (item.content || []).findIndex(oc => oc === c);
+          return { ...c, _originalIdx: originalIdx };
         });
         
         if (normalContents.length > 0 || filteredEvents.length > 0) {
@@ -218,25 +230,15 @@ const TimelineContent = ({
           subEraGroups[item.subEra].items.push(modifiedItem);
         }
       } else if (!item.subEra) {
-        // 時代区分を持たないアイテムの場合も positionParent をチェック
-        const normalContents = [];
-        const parentedContents = [];
-        
-        filteredContent.forEach((c, idx) => {
-          const originalIdx = (item.content || []).findIndex(oc => oc === c);
+        // 時代区分を持たないアイテムの場合
+        // positionParentが設定されているコンテンツは既にallSubEraGroupsで処理済みなので除外
+        const normalContents = filteredContent.filter((c) => {
           const posParent = getPositionParent(c);
-          // positionParent が設定されていて、その親が存在する場合
-          if (posParent && subEraGroups[posParent]) {
-            parentedContents.push({ content: c, idx: originalIdx, item, year: item.year });
-          } else {
-            normalContents.push({ ...c, _originalIdx: originalIdx });
-          }
-        });
-        
-        // 親に紐付くコンテンツを追加
-        parentedContents.forEach(pc => {
-          const posParent = getPositionParent(pc.content);
-          subEraGroups[posParent].childContents.push(pc);
+          // positionParentが設定されていない、または親が存在しない場合のみ含める
+          return !posParent || !allSubEraGroups[posParent];
+        }).map((c, idx) => {
+          const originalIdx = (item.content || []).findIndex(oc => oc === c);
+          return { ...c, _originalIdx: originalIdx };
         });
         
         // 残りのコンテンツを standaloneItems に追加
@@ -517,10 +519,13 @@ const SubEraGroup = ({
   
   // 子コンテンツを追加（positionParentで紐付けられたもの）
   (ti.childContents || []).forEach((pc, pcIdx) => {
+    // yearが空の場合は親の開始年を使用
+    const parsedYear = parseYear(pc.year);
+    const effectiveYear = isNaN(parsedYear) ? ti.startYear : parsedYear;
     allElements.push({
       type: 'childContent',
-      year: parseYear(pc.year),
-      yearLabel: pc.year,
+      year: effectiveYear,
+      yearLabel: pc.year || '', // 空の場合は年号ラベルを表示しない
       pc,
       pcIdx
     });
@@ -537,12 +542,18 @@ const SubEraGroup = ({
     });
   });
   
-  // 年号順にソート（同年の場合は子時代区分を先に）
+  // 年号順にソート（同年の場合は子時代区分を先に、yearLabelが空のchildContentを優先）
   allElements.sort((a, b) => {
     if (a.year !== b.year) return a.year - b.year;
-    // 同年の場合の優先順位: childGroup > event > content/childContent
-    const priority = { childGroup: 0, event: 1, content: 2, childContent: 2 };
-    return (priority[a.type] || 99) - (priority[b.type] || 99);
+    // 同年の場合の優先順位: childGroup > event > yearLabelが空のchildContent > content/childContent
+    const getPriority = (el) => {
+      if (el.type === 'childGroup') return 0;
+      if (el.type === 'event') return 1;
+      // yearLabelが空のchildContentは親の直下に表示
+      if (el.type === 'childContent' && !el.yearLabel) return 1.5;
+      return 2;
+    };
+    return getPriority(a) - getPriority(b);
   });
   
   // 年号ラベル表示のトラッキング
@@ -586,8 +597,9 @@ const SubEraGroup = ({
       
       {/* 統合されたコンテンツを年号順に表示 */}
       {allElements.map((elem, elemIdx) => {
-        const showYearLabel = elem.yearLabel !== lastYearLabel;
-        lastYearLabel = elem.yearLabel;
+        // yearLabelが空でなく、前回と異なる場合のみ表示
+        const showYearLabel = elem.yearLabel && elem.yearLabel !== lastYearLabel;
+        if (elem.yearLabel) lastYearLabel = elem.yearLabel;
         
         if (elem.type === 'childGroup') {
           // 子時代区分
