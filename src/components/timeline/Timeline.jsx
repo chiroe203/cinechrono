@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { eras } from '../../constants';
 import { parseYear, getCentury, getHistoryCategories, hasHistoryCategory, getStyle, getLabel, getSubEraIcon, getEventIcon } from '../../utils';
 
@@ -16,11 +16,20 @@ const Timeline = ({
   setSel,
   setVideoIndex
 }) => {
+  // 未来ボタンのアクティブ状態
+  const [futureActive, setFutureActive] = useState(false);
+  
   // ローカル関数
   const style = getStyle;
   const label = getLabel;
   const subEraIcon = getSubEraIcon;
   const eventIcon = getEventIcon;
+  
+  // 時代ボタンクリック時（未来のアクティブ状態を解除）
+  const handleEraClick = (eraId) => {
+    setFutureActive(false);
+    scroll(eraId);
+  };
 
   return (
     <div className="px-4 py-8">
@@ -35,13 +44,27 @@ const Timeline = ({
           {eras.map(e => (
             <button 
               key={e.id} 
-              onClick={() => scroll(e.id)} 
-              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold ${activeEra === e.id ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              onClick={() => handleEraClick(e.id)} 
+              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold ${activeEra === e.id && !futureActive ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
             >
               {e.name}
               <div className="text-xs opacity-75">{e.year}</div>
             </button>
           ))}
+          {/* 未来ボタン（今日に飛ぶ） */}
+          <button 
+            onClick={() => {
+              setFutureActive(true);
+              const todayEl = document.getElementById('timeline-today');
+              if (todayEl) {
+                todayEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }} 
+            className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold ${futureActive ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            未来
+            <div className="text-xs opacity-75">→ TODAY</div>
+          </button>
         </div>
       </div>
       
@@ -249,22 +272,28 @@ const TimelineContent = ({
       }
     });
     
-    // 子時代区分を親に追加
+    // 子時代区分を収集（親グループ内にネストせず、独立したアイテムとして配置）
+    const childSubEraItems = [];
     Object.entries(childSubEras).forEach(([childName, parentName]) => {
       if (subEraGroups[parentName] && subEraGroups[childName]) {
-        subEraGroups[parentName].childGroups.push(subEraGroups[childName]);
+        // 子時代区分を独立したアイテムとして保存
+        childSubEraItems.push({
+          ...subEraGroups[childName],
+          isChildSubEra: true,
+          parentSubEraName: parentName
+        });
+        // 親グループには追加しない
         delete subEraGroups[childName];
       }
     });
     
-    // 各時代区分のchildContentsとchildGroupsを年順にソート
+    // 各時代区分のchildContentsを年順にソート（childGroupsは使わない）
     Object.values(subEraGroups).forEach(group => {
       if (group.childContents && group.childContents.length > 0) {
         group.childContents.sort((a, b) => parseYear(a.year) - parseYear(b.year));
       }
-      if (group.childGroups && group.childGroups.length > 0) {
-        group.childGroups.sort((a, b) => a.startYear - b.startYear);
-      }
+      // childGroupsは空にする
+      group.childGroups = [];
     });
     
     // タイムラインアイテムを構築（すべてフラット）
@@ -278,6 +307,14 @@ const TimelineContent = ({
       });
     });
     
+    // 子時代区分を独立したアイテムとして追加
+    childSubEraItems.forEach(childSubEra => {
+      timelineItems.push({
+        type: 'childSubEraItem',
+        ...childSubEra
+      });
+    });
+    
     standaloneItems.forEach(item => {
       timelineItems.push({
         type: 'item',
@@ -286,25 +323,31 @@ const TimelineContent = ({
       });
     });
     
-    // ソート
+    // ソート（子時代区分も年号順に配置）
     timelineItems.sort((a, b) => {
-      const yearA = a.type === 'subEraGroup' ? a.startYear : a.year;
-      const yearB = b.type === 'subEraGroup' ? b.startYear : b.year;
+      const yearA = (a.type === 'subEraGroup' || a.type === 'childSubEraItem') ? a.startYear : a.year;
+      const yearB = (b.type === 'subEraGroup' || b.type === 'childSubEraItem') ? b.startYear : b.year;
       if (yearA !== yearB) return yearA - yearB;
-      if (a.type === 'subEraGroup' && b.type !== 'subEraGroup') return -1;
-      if (a.type !== 'subEraGroup' && b.type === 'subEraGroup') return 1;
-      const idA = a.type === 'subEraGroup' ? a.subEra : (a.item?.id || '');
-      const idB = b.type === 'subEraGroup' ? b.subEra : (b.item?.id || '');
+      // 同年の場合、親時代区分 > 子時代区分 > 通常アイテム
+      const getPriority = (item) => {
+        if (item.type === 'subEraGroup') return 0;
+        if (item.type === 'childSubEraItem') return 1;
+        return 2;
+      };
+      const priorityDiff = getPriority(a) - getPriority(b);
+      if (priorityDiff !== 0) return priorityDiff;
+      const idA = (a.type === 'subEraGroup' || a.type === 'childSubEraItem') ? a.subEra : (a.item?.id || '');
+      const idB = (b.type === 'subEraGroup' || b.type === 'childSubEraItem') ? b.subEra : (b.item?.id || '');
       return idA.localeCompare(idB);
     });
     
     // 紀元チェック
     const hasBCItems = era.id === 'ancient' && timelineItems.some(ti => {
-      const yr = ti.type === 'subEraGroup' ? ti.startYear : ti.year;
+      const yr = (ti.type === 'subEraGroup' || ti.type === 'childSubEraItem') ? ti.startYear : ti.year;
       return yr < 0;
     });
     const hasADItems = era.id === 'ancient' && timelineItems.some(ti => {
-      const yr = ti.type === 'subEraGroup' ? ti.startYear : ti.year;
+      const yr = (ti.type === 'subEraGroup' || ti.type === 'childSubEraItem') ? ti.startYear : ti.year;
       return yr > 0;
     });
     const showEraLine = hasBCItems && hasADItems;
@@ -321,9 +364,9 @@ const TimelineContent = ({
         </div>
         
         {timelineItems.map((ti, tiIdx) => {
-          const currentYear = ti.type === 'subEraGroup' ? ti.startYear : parseYear(ti.year || ti.item?.year);
+          const currentYear = (ti.type === 'subEraGroup' || ti.type === 'childSubEraItem') ? ti.startYear : parseYear(ti.year || ti.item?.year);
           const prevItem = tiIdx > 0 ? timelineItems[tiIdx - 1] : null;
-          const prevYear = prevItem ? (prevItem.type === 'subEraGroup' ? prevItem.startYear : parseYear(prevItem.year || prevItem.item?.year)) : null;
+          const prevYear = prevItem ? ((prevItem.type === 'subEraGroup' || prevItem.type === 'childSubEraItem') ? prevItem.startYear : parseYear(prevItem.year || prevItem.item?.year)) : null;
           const showEraDivider = showEraLine && prevYear !== null && prevYear < 0 && currentYear > 0;
           const showNowArrow = currentYear > currentRealYear && (prevYear === null || prevYear <= currentRealYear);
           
@@ -355,6 +398,25 @@ const TimelineContent = ({
                 label={label}
                 subEraIcon={subEraIcon}
                 eventIcon={eventIcon}
+                sortedData={sortedData}
+              />
+            );
+          } else if (ti.type === 'childSubEraItem') {
+            // 子時代区分を独立したアイテムとしてレンダリング
+            return (
+              <ChildSubEraItem 
+                key={`childSubEra-${ti.subEra}-${tiIdx}`}
+                ti={ti}
+                tiIdx={tiIdx}
+                showEraDivider={showEraDivider}
+                showNowArrow={showNowArrow}
+                showCenturyMarker={showCenturyMarker}
+                currentCentury={currentCentury}
+                setSel={setSel}
+                setVideoIndex={setVideoIndex}
+                style={style}
+                label={label}
+                subEraIcon={subEraIcon}
                 sortedData={sortedData}
               />
             );
@@ -418,15 +480,21 @@ const CenturyMarker = ({ show, currentCentury }) => {
  */
 const NowArrow = ({ show }) => {
   if (!show) return null;
+  const currentYear = new Date().getFullYear();
   return (
-    <div className="flex items-center justify-center my-6">
-      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent"></div>
-      <div className="px-4 py-2 bg-purple-100 rounded-full text-purple-800 font-bold text-sm mx-4 flex items-center gap-2">
-        <span>↓</span>
-        <span>現在</span>
-        <span>↓</span>
+    <div id="timeline-today" className="relative mb-6 mt-4">
+      {/* 今日マーカー：タイムラインの左側に配置 */}
+      <div className="flex items-center">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg z-10 -ml-2">
+          <span className="text-white text-lg">→</span>
+        </div>
+        <div className="ml-6 flex items-center gap-3">
+          <span className="text-2xl font-bold text-green-600">{currentYear}</span>
+          <span className="px-3 py-1 bg-green-100 rounded-full text-green-700 font-bold text-sm">TODAY</span>
+        </div>
       </div>
-      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent"></div>
+      {/* 区切り線（タイムラインの右側から開始） */}
+      <div className="ml-12 mt-2 h-px bg-gradient-to-r from-green-400 via-green-300 to-transparent"></div>
     </div>
   );
 };
@@ -460,6 +528,100 @@ const collectRelatedContents = (subEraName, sortedData) => {
   relatedContents.sort((a, b) => parseYear(a.year) - parseYear(b.year));
   
   return relatedContents;
+};
+
+/**
+ * 子時代区分アイテムコンポーネント（独立して年号順に配置）
+ */
+const ChildSubEraItem = ({
+  ti,
+  showEraDivider,
+  showNowArrow,
+  showCenturyMarker,
+  currentCentury,
+  setSel,
+  setVideoIndex,
+  style,
+  label,
+  subEraIcon,
+  sortedData
+}) => {
+  const seIcon = subEraIcon(ti.subEraType);
+  const SeIcon = seIcon.icon;
+  const isRed = seIcon.color === 'red';
+  const colors = isRed 
+    ? { bg: 'bg-red-100', border: 'border-red-300', text: 'text-red-800', subtext: 'text-red-500', line: 'border-red-400', iconColor: 'text-red-600' }
+    : { bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-800', subtext: 'text-gray-500', line: 'border-gray-400', iconColor: 'text-gray-600' };
+
+  // 関連作品を収集
+  const relatedContents = collectRelatedContents(ti.subEra, sortedData);
+
+  return (
+    <React.Fragment>
+      <EraDivider show={showEraDivider} />
+      <CenturyMarker show={showCenturyMarker} currentCentury={currentCentury} />
+      <NowArrow show={showNowArrow} />
+      
+      {/* 子時代区分ヘッダー（インデント深め、点線でタイムラインに繋げる） */}
+      <div className="flex items-center ml-20 relative mb-6 mt-4">
+        <div className={`absolute left-[-48px] top-4 w-10 border-t-2 border-dashed ${colors.line}`}></div>
+        <div 
+          className="flex items-center cursor-pointer group"
+          onClick={() => setSel({ 
+            type: 'subEra', 
+            subEraType: ti.subEraType,
+            title: ti.subEra, 
+            subEraYears: ti.subEraYears,
+            desc: ti.subEraDesc,
+            detail: ti.subEraDetail,
+            mainEra: ti.mainEra,
+            subEra: ti.subEra,
+            relatedContents: relatedContents,
+            isChildSubEra: true,
+            parentSubEraName: ti.parentSubEraName
+          })}
+        >
+          <div className={`w-10 h-10 rounded-full ${colors.bg} ${colors.border} border-2 flex items-center justify-center shadow group-hover:shadow-lg transition-shadow`}>
+            <SeIcon className={`w-5 h-5 ${colors.iconColor}`} />
+          </div>
+          <div className="ml-3">
+            <div className={`font-bold ${colors.text} group-hover:underline`}>{ti.subEra}</div>
+            <div className={`text-sm ${colors.subtext}`}>{ti.subEraYears}</div>
+          </div>
+        </div>
+      </div>
+      
+      {/* 子時代区分のchildContentsがある場合は表示 */}
+      {(ti.childContents || []).map((pc, pcIdx) => {
+        const s = style(pc.content.type);
+        const displayPeriod = pc.content.periodRange || '';
+        const types = pc.content.settingTypes || (pc.content.settingType ? [pc.content.settingType] : []);
+        return (
+          <div key={`cc-${pcIdx}`} className="ml-28 mb-4">
+            {pc.year && <div className="text-lg font-bold text-purple-600 mb-2">{pc.year}</div>}
+            <div 
+              onClick={() => { setVideoIndex(0); setSel({ ...pc.content, year: pc.year, itemId: pc.item.id, idx: pc.idx }); }} 
+              className={`cursor-pointer pl-4 py-3 pr-2 mb-3 border-l-4 ${s.b} ${s.bg} rounded-r-lg hover:shadow-md transition-shadow flex items-center gap-3`}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  {getSettingTypeIcon(types)}
+                  <span className={`font-bold ${s.txt}`}>{pc.content.title}</span>
+                </div>
+                <div className="text-sm text-gray-600 mt-1">{label(pc.content.type)}</div>
+                <div className="text-sm text-gray-500 min-h-[1.25rem]">{displayPeriod}</div>
+              </div>
+              {pc.content.thumbnail ? (
+                <img src={pc.content.thumbnail} alt="" className="w-16 h-16 object-cover rounded flex-shrink-0" onError={(e) => e.target.style.display='none'} />
+              ) : (
+                <div className="w-16 h-16 flex-shrink-0"></div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </React.Fragment>
+  );
 };
 
 /**
@@ -723,7 +885,7 @@ const ChildSubEraGroup = ({
     <div className="mt-2">
       {/* 子時代区分ヘッダー */}
       <div className="flex items-center ml-20 relative mb-4">
-        <div className={`absolute left-[-48px] top-4 w-12 border-t-2 border-dashed ${childColors.line}`}></div>
+        <div className={`absolute left-[-48px] top-4 w-10 border-t-2 border-dashed ${childColors.line}`}></div>
         <div 
           className="flex items-center cursor-pointer group"
           onClick={() => setSel({ 

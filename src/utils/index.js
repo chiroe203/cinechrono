@@ -1,4 +1,4 @@
-// ユーティリティ関数をまとめてエクスポート
+// ユーティリティ関数のエクスポート
 export { parseYear, getCentury, detectMainEra } from './parseYear';
 export { getHistoryCategories, hasHistoryCategory } from './historyCategories';
 export { 
@@ -10,5 +10,6 @@ export {
   getTypeIcons, 
   getEventIcon, 
   getSubEraIcon, 
-  getYoutubeId 
+  getYoutubeId,
+  subEraTypes  // 追加
 } from './displayHelpers';

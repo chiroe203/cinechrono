@@ -66,29 +66,55 @@ export const getTypeIcons = (t) => {
 export const getEventIcon = (eventType) => {
   switch(eventType) {
     case 'war': return { icon: Swords, label: '⚔️ 戦争・紛争', color: 'red', bgColor: 'bg-red-100', borderColor: 'border-red-500', textColor: 'text-red-700', iconColor: 'text-red-600' };
-    case 'incident': return { icon: AlertCircle, label: '❗ 事件', color: 'red', bgColor: 'bg-red-100', borderColor: 'border-red-500', textColor: 'text-red-700', iconColor: 'text-red-600' };
-    case 'plague': return { icon: Skull, label: '💀 疫病・災害', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-500', textColor: 'text-gray-700', iconColor: 'text-gray-600' };
+    case 'incident': return { icon: AlertCircle, label: '❗ 事件・暴動', color: 'red', bgColor: 'bg-red-100', borderColor: 'border-red-500', textColor: 'text-red-700', iconColor: 'text-red-600' };
+    case 'disaster': return { icon: Skull, label: '💀 災害・疫病', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-500', textColor: 'text-gray-700', iconColor: 'text-gray-600' };
     case 'treaty': return { icon: ScrollText, label: '📜 条約・宣言', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-500', textColor: 'text-gray-700', iconColor: 'text-gray-600' };
+    case 'place': return { icon: MapPin, label: '📍 場所・地域', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-500', textColor: 'text-gray-700', iconColor: 'text-gray-600' };
     default: return { icon: MapPin, label: '📍 出来事', color: 'red', bgColor: 'bg-red-100', borderColor: 'border-red-500', textColor: 'text-red-700', iconColor: 'text-red-600' };
   }
 };
 
+// 時代区分タイプの定義（一元管理）
+export const subEraTypes = [
+  { id: 'era', label: '🏛️ 通常の時代区分', icon: Clock, color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-600' },
+  { id: 'war', label: '⚔️ 戦争・紛争', icon: Swords, color: 'red', bgColor: 'bg-red-100', borderColor: 'border-red-300', iconColor: 'text-red-600' },
+  { id: 'incident', label: '❗ 事件・暴動', icon: AlertCircle, color: 'red', bgColor: 'bg-red-100', borderColor: 'border-red-300', iconColor: 'text-red-600' },
+  { id: 'treaty', label: '📜 条約・宣言', icon: ScrollText, color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-600' },
+  { id: 'disaster', label: '💀 災害・疫病', icon: Skull, color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-600' },
+  { id: 'place', label: '📍 場所・地域', icon: MapPin, color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-600' },
+];
+
 // サブ時代アイコンを取得
 export const getSubEraIcon = (subEraType) => {
-  switch(subEraType) {
-    case 'war': 
-      return { icon: Swords, label: '⚔️ 戦争・紛争', color: 'red', bgColor: 'bg-red-100', borderColor: 'border-red-300', iconColor: 'text-red-600' };
-    case 'incident': 
-      return { icon: AlertCircle, label: '❗ 事件', color: 'red', bgColor: 'bg-red-100', borderColor: 'border-red-300', iconColor: 'text-red-600' };
-    case 'plague': 
-      return { icon: Skull, label: '💀 疫病・災害', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-600' };
-    case 'treaty': 
-      return { icon: ScrollText, label: '📜 条約・宣言', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-600' };
-    case 'event': 
-      return { icon: AlertCircle, label: '📌 その他イベント', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-500' };
-    default: 
-      return { icon: Clock, label: '🕐 時代区分', color: 'gray', bgColor: 'bg-gray-100', borderColor: 'border-gray-300', iconColor: 'text-gray-600' };
+  // 既存データの互換性対応
+  const normalizedType = subEraType === 'normal' ? 'era' 
+    : subEraType === 'event' ? 'incident'  // 旧eventは事件として扱う
+    : subEraType === 'location' ? 'place'  // 旧locationはplaceとして扱う
+    : subEraType === 'plague' ? 'disaster' // 旧plagueはdisasterとして扱う
+    : subEraType;
+  
+  const typeInfo = subEraTypes.find(t => t.id === normalizedType);
+  
+  if (typeInfo) {
+    return {
+      icon: typeInfo.icon,
+      label: typeInfo.label,
+      color: typeInfo.color,
+      bgColor: typeInfo.bgColor,
+      borderColor: typeInfo.borderColor,
+      iconColor: typeInfo.iconColor
+    };
   }
+  
+  // デフォルト（通常の時代区分）
+  return {
+    icon: Clock,
+    label: '🏛️ 時代区分',
+    color: 'gray',
+    bgColor: 'bg-gray-100',
+    borderColor: 'border-gray-300',
+    iconColor: 'text-gray-600'
+  };
 };
 
 // YouTube URLから動画IDを抽出

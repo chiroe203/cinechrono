@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Settings, Pencil, Loader2, ToggleLeft, ToggleRight, Lightbulb, RefreshCw, CheckSquare, Square } from 'lucide-react';
 import { eras, linkServices, gamePlatforms } from '../../constants';
-import { parseYear, detectMainEra, getHistoryCategories, hasHistoryCategory, getLabel, getSubEraIcon } from '../../utils';
+import { parseYear, detectMainEra, getHistoryCategories, hasHistoryCategory, getLabel, getSubEraIcon, subEraTypes } from '../../utils';
 
 /**
  * 管理パネルコンポーネント
@@ -60,11 +60,33 @@ const AdminPanel = ({
   // ゲーム初期選択
   initialSelectedGame
 }) => {
+  // 親・関連作品選択用フィルターstate
+  const [subEraTypeFilter, setSubEraTypeFilter] = useState('all');
+  
   if (!show) return null;
 
   // ローカル関数
   const label = getLabel;
   const subEraIcon = getSubEraIcon;
+  
+  // 時代区分リストを作成（subEraTypeを含む）
+  const subEraList = [...new Set(sortedData.filter(i => i.subEra).map(i => JSON.stringify({ 
+    name: i.subEra, 
+    type: i.subEraType || 'era' 
+  })))].map(s => JSON.parse(s));
+  
+  // フィルター適用後の時代区分リスト
+  const filteredSubEraList = subEraTypeFilter === 'all' 
+    ? subEraList 
+    : subEraList.filter(s => {
+        // 既存データの互換性対応
+        const normalizedType = s.type === 'normal' ? 'era' 
+          : s.type === 'event' ? 'incident'
+          : s.type === 'location' ? 'place'
+          : s.type === 'plague' ? 'disaster'
+          : s.type;
+        return normalizedType === subEraTypeFilter;
+      });
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 overflow-y-auto">
@@ -146,6 +168,10 @@ const AdminPanel = ({
               onBulkUpdateGameSynopsis={onBulkUpdateGameSynopsis}
               bulkUpdateProgress={bulkUpdateProgress}
               initialSelectedGame={initialSelectedGame}
+              filteredSubEraList={filteredSubEraList}
+              subEraTypeFilter={subEraTypeFilter}
+              setSubEraTypeFilter={setSubEraTypeFilter}
+              subEraIcon={subEraIcon}
             />
           )}
 
@@ -214,7 +240,11 @@ const ContentForm = ({
   label,
   onBulkUpdateGameSynopsis,
   bulkUpdateProgress,
-  initialSelectedGame
+  initialSelectedGame,
+  filteredSubEraList,
+  subEraTypeFilter,
+  setSubEraTypeFilter,
+  subEraIcon
 }) => {
   return (
     <form ref={contentFormRef} onSubmit={onSubmit} className="bg-gray-50 rounded-lg p-6 border space-y-4">
@@ -343,8 +373,8 @@ const ContentForm = ({
           className="w-full px-4 py-3 bg-white border border-purple-300 rounded-lg"
         >
           <option value="">なし（年号順に配置）</option>
-          {[...new Set(sortedData.filter(i => i.subEra).map(i => i.subEra))].map(sub => (
-            <option key={sub} value={sub}>{sub}</option>
+          {filteredSubEraList.map(s => (
+            <option key={s.name} value={s.name}>{s.name}</option>
           ))}
         </select>
         <p className="text-xs text-purple-600">↑ 選択すると、その時代区分グループ内に配置されます（例：第二次世界大戦内に表示）</p>
@@ -353,30 +383,60 @@ const ContentForm = ({
       {/* 関連作品として表示する時代区分 */}
       <div className="bg-white border rounded-lg p-4">
         <label className="block text-sm font-semibold text-gray-700 mb-3">📚 関連作品として表示する時代区分（複数選択可）</label>
-        <div className="max-h-48 overflow-y-auto space-y-2">
-          {[...new Set(sortedData.filter(i => i.subEra).map(i => i.subEra))].map(sub => (
-            <label key={sub} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
-              <input
-                type="checkbox"
-                checked={(cf.relatedSubEras || []).includes(sub)}
-                onChange={(e) => {
-                  setCf(p => {
-                    const current = p.relatedSubEras || [];
-                    if (e.target.checked) {
-                      return { ...p, relatedSubEras: [...current, sub] };
-                    } else {
-                      return { ...p, relatedSubEras: current.filter(s => s !== sub) };
-                    }
-                  });
-                }}
-                className="w-4 h-4 rounded accent-purple-600"
-              />
-              <span className={`text-sm ${(cf.relatedSubEras || []).includes(sub) ? 'font-semibold text-purple-700' : 'text-gray-700'}`}>
-                {sub}
-                {cf.positionParent === sub && <span className="ml-2 text-xs text-purple-500">（配置用に設定中）</span>}
-              </span>
-            </label>
+        
+        {/* タイプフィルター */}
+        <div className="flex flex-wrap gap-1 mb-3 pb-3 border-b">
+          <button
+            type="button"
+            onClick={() => setSubEraTypeFilter('all')}
+            className={`px-2 py-1 text-xs rounded-full transition-colors ${subEraTypeFilter === 'all' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+          >
+            すべて
+          </button>
+          {subEraTypes.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setSubEraTypeFilter(t.id)}
+              className={`px-2 py-1 text-xs rounded-full transition-colors ${subEraTypeFilter === t.id ? (t.color === 'red' ? 'bg-red-600 text-white' : 'bg-gray-600 text-white') : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            >
+              {t.label.split(' ')[0]} {/* 絵文字のみ表示 */}
+            </button>
           ))}
+        </div>
+        
+        <div className="max-h-48 overflow-y-auto space-y-2">
+          {filteredSubEraList.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">該当する時代区分がありません</p>
+          ) : (
+            filteredSubEraList.map(s => {
+              const iconInfo = subEraIcon(s.type);
+              return (
+                <label key={s.name} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
+                  <input
+                    type="checkbox"
+                    checked={(cf.relatedSubEras || []).includes(s.name)}
+                    onChange={(e) => {
+                      setCf(p => {
+                        const current = p.relatedSubEras || [];
+                        if (e.target.checked) {
+                          return { ...p, relatedSubEras: [...current, s.name] };
+                        } else {
+                          return { ...p, relatedSubEras: current.filter(n => n !== s.name) };
+                        }
+                      });
+                    }}
+                    className="w-4 h-4 rounded accent-purple-600"
+                  />
+                  <span className={`text-sm flex items-center gap-1 ${(cf.relatedSubEras || []).includes(s.name) ? 'font-semibold text-purple-700' : 'text-gray-700'}`}>
+                    <span className={`text-xs ${iconInfo.iconColor}`}>{iconInfo.label.split(' ')[0]}</span>
+                    {s.name}
+                    {cf.positionParent === s.name && <span className="ml-2 text-xs text-purple-500">（配置用に設定中）</span>}
+                  </span>
+                </label>
+              );
+            })
+          )}
         </div>
         <p className="text-xs text-gray-500 mt-2">↑ チェックした時代区分の「関連作品」欄に表示されます。配置用の親を設定すると自動でチェックされます</p>
       </div>
@@ -1042,11 +1102,9 @@ const SubEraForm = ({
         onChange={e => setSf(p => ({ ...p, subEraType: e.target.value }))} 
         className="w-full px-4 py-3 bg-white border rounded-lg"
       >
-        <option value="normal">🏛️ 通常の時代区分</option>
-        <option value="war">⚔️ 戦争・紛争</option>
-        <option value="event">📜 歴史的事件</option>
-        <option value="location">📍 場所・地域</option>
-        <option value="disaster">💀 災害・疫病</option>
+        {subEraTypes.map(t => (
+          <option key={t.id} value={t.id}>{t.label}</option>
+        ))}
       </select>
 
       {/* 時代区分名 */}
