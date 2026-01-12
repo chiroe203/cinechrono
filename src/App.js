@@ -4,6 +4,7 @@ import { Film, X, Gamepad2, BookMarked, Settings, Clock, Menu, ExternalLink, Log
 import { db, addTimelineItem, deleteTimelineItem, loginAdmin, logoutAdmin } from './firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import Articles from './pages/Articles';
+import Privacy from './pages/Privacy';
 import { searchGame, formatReleaseDate } from './libs/rawg';
 import { searchMovie, searchTV, formatMovieReleaseDate, formatRuntime } from './libs/tmdb';
 import { translateToJapanese } from './libs/deepl';
@@ -23,6 +24,7 @@ const App = () => {
   // URLからページを判定
   const page = location.pathname === '/about' ? 'about' 
              : location.pathname === '/request' ? 'request'
+             : location.pathname === '/privacy' ? 'privacy'
              : location.pathname.startsWith('/articles') ? 'articles'
              : 'timeline';
   
@@ -1490,6 +1492,10 @@ const App = () => {
               </button>
             </div>
           </div>
+        )}
+
+        {page === 'privacy' && (
+          <Privacy onBack={() => navigate('/')} />
         )}
 
         {page === 'articles' && <Articles />}
